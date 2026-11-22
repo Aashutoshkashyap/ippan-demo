@@ -223,6 +223,7 @@ export function WebsiteCms() {
             </button>
           </div>
           <Panel
+            className="cms-edition-panel"
             title="The publishing desk"
             sub="A working edition stays private until approved. Existing public links stay the same when a revision is published."
           >
@@ -258,7 +259,7 @@ export function WebsiteCms() {
                     <td>
                       {edition.access || "Public"}
                       {edition.featured && edition.access === "Public" && (
-                        <small>Featured on homepage</small>
+                        <small>Homepage priority</small>
                       )}
                     </td>
                     <td>

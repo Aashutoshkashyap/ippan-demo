@@ -2183,3 +2183,100 @@ html[lang="ne"] body {
     font-size: 12px;
   }
 }
+
+.cms-edition-panel table {
+  table-layout: fixed;
+  white-space: normal;
+}
+.cms-edition-panel th:first-child {
+  width: 31%;
+}
+.cms-edition-panel th:nth-child(2) {
+  width: 12%;
+}
+.cms-edition-panel th:nth-child(3) {
+  width: 14%;
+}
+.cms-edition-panel th:nth-child(4) {
+  width: 19%;
+}
+.cms-edition-panel th:last-child {
+  width: 24%;
+}
+.cms-edition-panel td {
+  padding: 17px 14px;
+  overflow-wrap: anywhere;
+}
+.cms-edition-panel td strong {
+  font-size: 14px;
+  line-height: 1.55;
+}
+.cms-edition-panel td .row-actions {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+}
+.cms-edition-panel .button.small {
+  white-space: normal;
+  text-align: left;
+  line-height: 1.5;
+}
+@media (max-width: 650px) {
+  .cms-edition-panel table,
+  .cms-edition-panel tbody {
+    display: block;
+    width: 100%;
+  }
+  .cms-edition-panel thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .cms-edition-panel tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    padding: 18px;
+    gap: 8px 12px;
+    border-bottom: 1px solid #dde8e2;
+  }
+  .cms-edition-panel td {
+    padding: 0;
+    border: 0;
+    min-width: 0;
+  }
+  .cms-edition-panel td:first-child,
+  .cms-edition-panel td:nth-child(4),
+  .cms-edition-panel td:last-child {
+    grid-column: 1 / -1;
+  }
+  .cms-edition-panel td:first-child strong {
+    font-size: 16px;
+  }
+  .cms-edition-panel td:nth-child(2)::before {
+    content: "Audience";
+    display: block;
+    font-size: 11px;
+    color: #758c84;
+    margin: 3px 0 7px;
+  }
+  .cms-edition-panel td:nth-child(3)::before {
+    content: "Editorial state";
+    display: block;
+    font-size: 11px;
+    color: #758c84;
+    margin: 3px 0 7px;
+  }
+  .cms-edition-panel td:nth-child(4) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0 16px;
+  }
+  .cms-edition-panel td .row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    margin-top: 8px;
+  }
+}
