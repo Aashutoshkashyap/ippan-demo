@@ -83,6 +83,9 @@ export function extensionAction(
         status,
         seoDescription: z.string().max(300).default(""),
         menuLabel: z.string().max(80).default(""),
+        menuGroup: z
+          .enum(["About IPPAN", "Membership", "News & Media", "Events & AGM"])
+          .optional(),
         order: z.coerce.number().int().min(0).max(100).default(10),
       })
       .parse(d);

@@ -28,9 +28,26 @@ import {
 import { DataChart, HydropowerDashboard } from "./analytics";
 import { projectAggregates, totalCapacity } from "./analytics-data";
 import { useLanguage, LanguageSwitch } from "./i18n";
+import { editorialImage, homepageContent } from "./cms-model";
+import { EditorialBody } from "./editorial-body";
 export function InstitutionalNavigation() {
   const { data } = usePlatform();
   const { t } = useLanguage();
+  const pages = (group: string) =>
+    data.sitePages
+      ?.filter(
+        (p) =>
+          p.status === "Published" &&
+          p.menuLabel &&
+          p.slug !== "privacy" &&
+          (p.menuGroup || "About IPPAN") === group,
+      )
+      .sort((a, b) => a.order - b.order)
+      .map((p) => (
+        <Link href={"/pages/" + p.slug} key={p.id}>
+          {p.menuLabel}
+        </Link>
+      ));
   return (
     <>
       <nav className="institutional-nav" aria-label="Main navigation">
@@ -42,14 +59,7 @@ export function InstitutionalNavigation() {
           </summary>
           <div>
             <Link href="/about">{t("About IPPAN")}</Link>
-            {data.sitePages
-              ?.filter((p) => p.menuLabel && p.slug !== "privacy")
-              .sort((a, b) => a.order - b.order)
-              .map((p) => (
-                <Link href={"/pages/" + p.slug} key={p.id}>
-                  {p.menuLabel}
-                </Link>
-              ))}
+            {pages("About IPPAN")}
             <Link href="/contact">{t("Contact")}</Link>
           </div>
         </details>
@@ -62,6 +72,7 @@ export function InstitutionalNavigation() {
             <Link href="/membership">{t("Become a member")}</Link>
             <Link href="/members">{t("Member directory")}</Link>
             <Link href="/track">{t("Track your application")}</Link>
+            {pages("Membership")}
           </div>
         </details>
         <Link href="/hydropower">{t("Hydropower Database")}</Link>
@@ -75,6 +86,7 @@ export function InstitutionalNavigation() {
             <Link href="/media">{t("News & Media")}</Link>
             <Link href="/publications">{t("Publications")}</Link>
             <Link href="/resources">{t("Energy Resource Centre")}</Link>
+            {pages("News & Media")}
           </div>
         </details>
         <details>
@@ -84,6 +96,7 @@ export function InstitutionalNavigation() {
           </summary>
           <div>
             <Link href="/events">{t("Events & AGM")}</Link>
+            {pages("Events & AGM")}
             <Link href="/agm">AGM</Link>
           </div>
         </details>
@@ -100,18 +113,24 @@ function SectionHead({
   description,
   href,
   label,
+  section,
 }: {
   tag: string;
   title: string;
   description?: string;
   href?: string;
   label?: string;
+  section?: string;
 }) {
+  const { data } = usePlatform();
+  const { choose } = useLanguage();
+  const copy = section ? data.settings.homeCopy?.[section] : undefined;
+  const customTitle = copy ? choose(copy.title, copy.titleNe) : "";
   return (
     <div className="editorial-heading">
       <div>
         <span className="eyebrow">{tag}</span>
-        <h2>{title}</h2>
+        <h2>{customTitle || title}</h2>
         {description && <p>{description}</p>}
       </div>
       {href && (
@@ -127,15 +146,20 @@ export function InstitutionalHome() {
   const { data } = usePlatform();
   const { choose: c, t } = useLanguage();
   const stats = projectAggregates(data.projects);
-  const publicNews = data.news
-    .filter((n) => n.status === "Published" && n.access === "Public")
-    .sort((a, b) => Number(b.featured) - Number(a.featured));
-  const resources = data.resources.filter(
-    (n) => n.status === "Published" && n.access === "Public",
+  const publicNews = homepageContent(data.news);
+  const resources = homepageContent(data.resources);
+  const pubs = homepageContent(data.publications);
+  const heroImage = editorialImage(
+    {
+      image: data.settings.heroImage || "/ippan/hydropower.jpg",
+      imageMediaId: data.settings.heroMediaId,
+    },
+    data.media,
   );
-  const pubs = data.publications.filter(
-    (n) => n.status === "Published" && n.access === "Public",
-  );
+  const heading = (key: string, en: string, ne: string) => {
+    const copy = data.settings.homeCopy?.[key];
+    return (copy && c(copy.title, copy.titleNe)) || c(en, ne);
+  };
   const sections = data.settings.sections || [];
   const today = new Date().toISOString().slice(0, 10);
   return (
@@ -144,9 +168,9 @@ export function InstitutionalHome() {
         <div
           className="hero-background"
           style={
-            data.settings.heroImage
+            heroImage
               ? {
-                  backgroundImage: `linear-gradient(90deg,#052d2bc9,#0c35224d), url(${data.settings.heroImage})`,
+                  backgroundImage: `linear-gradient(90deg,#052d2bc9,#0c35224d), url(${heroImage})`,
                 }
               : undefined
           }
@@ -220,7 +244,9 @@ export function InstitutionalHome() {
             <span className="eyebrow">
               {c("IPPAN AT A GLANCE", "इप्पान एक झलकमा")}
             </span>
-            <h2>{c("A collective force.", "सामूहिक शक्ति।")}</h2>
+            <h2>
+              {heading("glance", "A collective force.", "सामूहिक शक्ति।")}
+            </h2>
             <p>
               {c(
                 "Demonstration records, connected across one platform.",
@@ -265,6 +291,7 @@ export function InstitutionalHome() {
           data-home-section="sector"
         >
           <SectionHead
+            section="sector"
             tag={c("NEPAL’S ENERGY LANDSCAPE", "नेपालको ऊर्जा क्षेत्र")}
             title={c(
               "Understanding the journey to clean energy.",
@@ -326,6 +353,7 @@ export function InstitutionalHome() {
           data-home-section="projects"
         >
           <SectionHead
+            section="projects"
             tag={c(
               "EXPLORE NEPAL’S HYDROPOWER PROJECTS",
               "नेपालका जलविद्युत् परियोजना",
@@ -359,7 +387,8 @@ export function InstitutionalHome() {
               {c("IPPAN MEMBERSHIP", "इप्पान सदस्यता")}
             </span>
             <h2>
-              {c(
+              {heading(
+                "membership",
                 "Your ambition. Our shared momentum.",
                 "तपाईंको आकांक्षा। हाम्रो साझा गति।",
               )}
@@ -406,6 +435,7 @@ export function InstitutionalHome() {
       {sections.includes("news") && (
         <section className="section-wrap" data-home-section="news">
           <SectionHead
+            section="news"
             tag={c("LATEST NEWS & NOTICES", "पछिल्ला समाचार र सूचना")}
             title={c("Ideas. Insights. Impact.", "विचार। ज्ञान। प्रभाव।")}
             href="/news"
@@ -418,7 +448,10 @@ export function InstitutionalHome() {
                 key={n.id}
                 className={i === 0 ? "featured-story" : "small-story"}
               >
-                <img src={n.image} alt="IPPAN sector reference imagery" />
+                <img
+                  src={editorialImage(n, data.media)}
+                  alt="IPPAN sector reference imagery"
+                />
                 <div>
                   <span className="eyebrow">
                     {n.category} · {date(n.date)}
@@ -441,6 +474,7 @@ export function InstitutionalHome() {
           data-home-section="events"
         >
           <SectionHead
+            section="events"
             tag={c("UPCOMING EVENTS & AGM", "आगामी कार्यक्रम र साधारण सभा")}
             title={c(
               "Good energy starts with a conversation.",
@@ -496,7 +530,11 @@ export function InstitutionalHome() {
             <BookOpen size={38} />
             <span className="eyebrow">{t("Energy Resource Centre")}</span>
             <h2>
-              {c("Knowledge for what comes next.", "आगामी दिनका लागि ज्ञान।")}
+              {heading(
+                "resources",
+                "Knowledge for what comes next.",
+                "आगामी दिनका लागि ज्ञान।",
+              )}
             </h2>
             <p>
               {c(
@@ -534,6 +572,7 @@ export function InstitutionalHome() {
       {sections.includes("publications") && (
         <section className="section-wrap" data-home-section="publications">
           <SectionHead
+            section="publications"
             tag={c("FEATURED PUBLICATIONS", "विशेष प्रकाशन")}
             title={c(
               "Perspectives worth keeping.",
@@ -546,7 +585,7 @@ export function InstitutionalHome() {
             {pubs.slice(0, 3).map((p) => (
               <article key={p.id}>
                 <Link href={"/publications/" + p.id}>
-                  <img src={p.image} alt={p.title} />
+                  <img src={editorialImage(p, data.media)} alt={p.title} />
                 </Link>
                 <div>
                   <span className="eyebrow">
@@ -567,6 +606,7 @@ export function InstitutionalHome() {
       {sections.includes("media") && (
         <section className="section-wrap" data-home-section="media">
           <SectionHead
+            section="media"
             tag={c(
               "INSTITUTIONAL ACTIVITIES & MEDIA",
               "संस्थागत गतिविधि र मिडिया",
@@ -829,11 +869,7 @@ export function InstitutionalPage({ slug }: { slug: string }) {
         description={p.seoDescription}
       />
       <article className="institutional-prose section-wrap">
-        {c(p.body, p.bodyNe)
-          .split("\n")
-          .map((line, i) => (
-            <p key={i}>{line || "\u00a0"}</p>
-          ))}
+        <EditorialBody body={c(p.body, p.bodyNe)} />
       </article>
     </>
   );

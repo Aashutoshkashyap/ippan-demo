@@ -1,5 +1,7 @@
 import { upgradeState } from "../extensions-model";
 import { extensionAction } from "./extensions";
+import { cmsAction, cmsFingerprint } from "./cms";
+import { cmsArea, cmsKinds } from "../cms-model";
 import {
   createHash,
   randomBytes,
@@ -150,7 +152,23 @@ export function snapshot(s: State, u: Viewer | null) {
   const admin = !!u && u.role !== "Member";
   const member = u?.memberId;
   return {
-    ...s,
+    version: s.version,
+    settings: s.settings,
+    projects: s.projects,
+    categories: s.categories,
+    cmsRevisions: s
+      .cmsRevisions!.filter((r) => admin && can(u.role, cmsArea(r.kind)))
+      .map((r) => ({ ...r, edition: { ...r.edition, pdf: undefined } })),
+    cmsFingerprints: Object.fromEntries(
+      cmsKinds.flatMap((kind) =>
+        admin && can(u.role, cmsArea(kind))
+          ? (kind === "pages" ? s.sitePages! : s[kind]).map((r) => [
+              kind + ":" + r.id,
+              cmsFingerprint(r),
+            ])
+          : [],
+      ),
+    ),
     sitePages: s.sitePages!.filter(
       (p) => p.status === "Published" || (admin && can(u.role, "website")),
     ),
@@ -288,6 +306,8 @@ export function applyAction(
     .parse(input);
   upgradeState(s);
   const d = envelope.data;
+  const cms = cmsAction(s, u, envelope.action, d);
+  if (cms.handled) return cms.result;
   const extension = extensionAction(s, u, envelope.action, d);
   if (extension.handled) return extension.result;
   switch (envelope.action) {
@@ -619,6 +639,11 @@ export function applyAction(
           bodyNe: z.string().max(20000).optional(),
           seoTitle: z.string().max(250).optional(),
           seoDescription: z.string().max(300).optional(),
+          imageMediaId: z.string().max(100).optional(),
+          date: z
+            .string()
+            .regex(/^\d{4}-\d{2}-\d{2}$/)
+            .optional(),
         })
         .parse(d);
       if (c.status === "Published" && u?.role === "Content Editor")
@@ -629,6 +654,16 @@ export function applyAction(
       const list = s[c.kind];
       if (c.pdf) validatePdf(c.pdf);
       const old = list.find((x) => x.id === c.id);
+      if (
+        c.imageMediaId &&
+        !s.media!.some(
+          (m) =>
+            m.id === c.imageMediaId &&
+            m.type === "Photo" &&
+            m.status === "Published",
+        )
+      )
+        throw new HttpError("Select a published photo from the media library.");
       if (old?.status === "Published" && u?.role === "Content Editor")
         throw new HttpError(
           "A published edition requires administrator review. Create a separate draft for review.",
@@ -637,7 +672,7 @@ export function applyAction(
       const content = {
         ...c,
         id: old?.id || id(c.kind === "news" ? "N" : "DOC"),
-        date: today(),
+        date: c.date || old?.date || today(),
         pdf: c.pdf || old?.pdf,
         image:
           old?.image ||

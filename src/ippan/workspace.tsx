@@ -64,6 +64,7 @@ import {
 } from "./charts";
 import AdminModules from "./workspace-modules";
 import { OperationalOverview } from "./analytics";
+import { WebsiteCms } from "./website-cms";
 import {
   InstitutionalAdmin,
   NotificationPreferences,
@@ -336,6 +337,8 @@ export default function Workspace({ path }: { path: string }) {
             <MemberPortal area={area} />
           ) : area === "overview" ? (
             <OperationalOverview />
+          ) : area === "website" ? (
+            <WebsiteCms />
           ) : [
               "website",
               "categories",
@@ -865,6 +868,28 @@ function MemberPortal({ area }: { area: string }) {
       </div>
       {area === "overview" && (
         <>
+          {u.email === "demo.member@ippan.demo" && (
+            <div className="cms-guidance">
+              <Users size={22} />
+              <div>
+                <strong>Your sample member profile is ready.</strong>
+                <p>
+                  Explore your membership card, company and project information,
+                  initial fee invoice, event passes and member-only library.
+                  This fictional company is provided for evaluation; its records
+                  are not official IPPAN information.
+                </p>
+                <div className="row-actions">
+                  <Link className="text-link" href="/portal/profile">
+                    Company & project profile →
+                  </Link>
+                  <Link className="text-link" href="/portal/resources">
+                    Member-only library →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="member-overview">
             <div className="digital-card">
               <Brand light />
@@ -942,6 +967,11 @@ function MemberPortal({ area }: { area: string }) {
                   </span>
                   <div>
                     <strong>{n.title}</strong>
+                    {n.href && (
+                      <Link className="text-link" href={n.href}>
+                        Open update →
+                      </Link>
+                    )}
                     <small>{date(n.date)}</small>
                   </div>
                 </div>
@@ -1018,6 +1048,32 @@ function MemberPortal({ area }: { area: string }) {
               {date(m.expiry)}. Renewal invoices and receipts are in your
               payment history.
             </p>
+          </Panel>
+          <Panel
+            title="Company projects"
+            sub="Project records linked to your membership and the public hydropower register."
+          >
+            {data.projects
+              .filter((p) => p.memberId === m.id)
+              .map((p) => (
+                <Link
+                  className="list-link"
+                  key={p.id}
+                  href={"/hydropower/" + p.id}
+                >
+                  <Zap size={19} />
+                  <span>
+                    <strong>{p.name}</strong>
+                    <small>
+                      {p.province} · {p.district} · {p.capacity} MW
+                    </small>
+                  </span>
+                  <Badge>{p.status}</Badge>
+                </Link>
+              ))}
+            {!data.projects.some((p) => p.memberId === m.id) && (
+              <Empty text="No projects are linked to this membership yet." />
+            )}
           </Panel>
         </div>
       )}
@@ -1130,6 +1186,11 @@ function MemberPortal({ area }: { area: string }) {
               <Bell size={20} />
               <div>
                 <strong>{n.title}</strong>
+                {n.href && (
+                  <Link className="text-link" href={n.href}>
+                    Open update →
+                  </Link>
+                )}
                 <small>{date(n.date)}</small>
               </div>
             </div>

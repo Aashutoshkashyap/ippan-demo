@@ -11,7 +11,9 @@ export const homeSections = [
   "media",
 ];
 export function upgradeState(s: State): State {
-  s.version = Math.max(s.version, 2);
+  s.version = Math.max(s.version, 3);
+  s.cmsRevisions ??= [];
+  s.settings.homeCopy ??= {};
   s.sitePages ??= [
     {
       id: "PAGE-OVERVIEW",

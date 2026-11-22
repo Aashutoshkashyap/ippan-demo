@@ -1,4 +1,6 @@
 "use client";
+import { EditorialBody } from "./editorial-body";
+import { editorialImage } from "./cms-model";
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -121,6 +123,21 @@ export default function PublicSite({ path }: { path: string }) {
               {t(label)}
             </Link>
           ))}
+          {data.sitePages
+            ?.filter(
+              (p) =>
+                p.status === "Published" && p.menuLabel && p.slug !== "privacy",
+            )
+            .sort((a, b) => a.order - b.order)
+            .map((p) => (
+              <Link
+                key={p.id}
+                href={"/pages/" + p.slug}
+                onClick={() => setMenu(false)}
+              >
+                {p.menuLabel}
+              </Link>
+            ))}
         </nav>
       )}
       <main>
@@ -270,10 +287,11 @@ export default function PublicSite({ path }: { path: string }) {
   );
 }
 export function ContentCard({ item, kind }: { item: Content; kind: string }) {
+  const { data } = usePlatform();
   return (
     <Link className="content-card" href={"/" + kind + "/" + item.id}>
       <div className="content-image">
-        <img src={item.image} alt={item.title} />
+        <img src={editorialImage(item, data.media)} alt={item.title} />
         <span className="image-category">{item.category}</span>
       </div>
       <div className="content-info">
@@ -320,12 +338,12 @@ function ContentPage({
         </span>
         <h1>{item.title}</h1>
         <p className="article-lead">{item.description}</p>
-        <img className="article-image" src={item.image} alt={item.title} />
-        <div className="article-body">
-          {item.body.split("\n").map((p, i) => (
-            <p key={i}>{p}</p>
-          ))}
-        </div>
+        <img
+          className="article-image"
+          src={editorialImage(item, data.media)}
+          alt={item.title}
+        />
+        <EditorialBody body={item.body} />
         {kind !== "news" && (
           <div className="row-actions">
             <button className="button primary" onClick={() => setReading(true)}>

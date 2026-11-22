@@ -639,9 +639,18 @@ export function OperationalOverview() {
   const pending = data.applications.filter(
     (a) => a.status === "Pending" || a.status === "Correction requested",
   );
-  const review = [...data.news, ...data.publications, ...data.resources].filter(
-    (c) => c.status === "In review",
-  );
+  const review = [
+    ...[...data.news, ...data.publications, ...data.resources].filter(
+      (c) => c.status === "In review",
+    ),
+    ...(data.cmsRevisions || [])
+      .filter((r) => r.status === "In review")
+      .map((r) => ({
+        id: r.id,
+        title: r.edition.title || "Working edition",
+        status: r.status,
+      })),
+  ];
   const months = monthlyRecords(data.members, data.payments);
   return (
     <>
@@ -759,14 +768,14 @@ export function OperationalOverview() {
         <Panel
           title="Content awaiting approval"
           action={
-            <Link className="text-link" href="/admin/content">
+            <Link className="text-link" href="/admin/website">
               Editorial desk →
             </Link>
           }
         >
           {review.length ? (
             review.slice(0, 4).map((c) => (
-              <Link className="queue-row" href="/admin/content" key={c.id}>
+              <Link className="queue-row" href="/admin/website" key={c.id}>
                 <strong>{c.title}</strong>
                 <Badge>{c.status}</Badge>
               </Link>
@@ -851,7 +860,7 @@ export function OperationalOverview() {
           {[
             ["Add member", "/admin/members"],
             ["Review applications", "/admin/members"],
-            ["Create news / notice", "/admin/content"],
+            ["Create news / notice", "/admin/website"],
             ["Add hydropower project", "/admin/projects"],
             ["Create event", "/admin/events"],
             ["Register correspondence", "/admin/secretariat"],

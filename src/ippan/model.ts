@@ -86,6 +86,7 @@ export type Content = {
   bodyNe?: string;
   seoTitle?: string;
   seoDescription?: string;
+  imageMediaId?: string;
 };
 export type Event = {
   id: string;
@@ -174,6 +175,7 @@ export type Notification = {
   memberId: string;
   title: string;
   date: string;
+  href?: string;
 };
 export type State = {
   version: number;
@@ -217,7 +219,10 @@ export type State = {
     contactPhone?: string;
     agmAgenda?: string;
     sections?: string[];
+    heroMediaId?: string;
+    homeCopy?: Record<string, { title: string; titleNe: string }>;
   };
+  cmsRevisions?: import("./cms-model").CmsRevision[];
   sitePages?: SitePage[];
   profiles?: Profile[];
   media?: Media[];
@@ -245,6 +250,7 @@ export type SitePage = {
   seoDescription: string;
   menuLabel: string;
   order: number;
+  menuGroup?: "About IPPAN" | "Membership" | "News & Media" | "Events & AGM";
 };
 export type Profile = {
   id: string;
@@ -289,6 +295,7 @@ export type Snapshot = Omit<State, "users" | "sessions" | "applications"> & {
   users: Viewer[];
   viewer: Viewer | null;
   storage: "Neon PostgreSQL" | "Local demo file";
+  cmsFingerprints?: Record<string, string>;
 };
 export const provinces = [
   "Koshi",

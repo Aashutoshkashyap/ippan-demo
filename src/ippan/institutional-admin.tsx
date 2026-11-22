@@ -55,10 +55,18 @@ type EditRecord = Partial<
     Correspondence &
     Member
 >;
-export function InstitutionalAdmin({ area }: { area: string }) {
+export function InstitutionalAdmin({
+  area,
+  initialTab = "Homepage",
+  embedded = false,
+}: {
+  area: string;
+  initialTab?: string;
+  embedded?: boolean;
+}) {
   const { data, act, notify } = usePlatform();
   const { t } = useLanguage();
-  const [tab, setTab] = useState("Homepage"),
+  const [tab, setTab] = useState(initialTab),
     [q, setQ] = useState(""),
     [modal, setModal] = useState(""),
     [record, setRecord] = useState<any>(null);
@@ -91,7 +99,7 @@ export function InstitutionalAdmin({ area }: { area: string }) {
     until = new Date(Date.now() + 90 * 86400000).toISOString().slice(0, 10);
   return (
     <>
-      <div className="workspace-title">
+      <div className="workspace-title" hidden={embedded}>
         <div>
           <div className="welcome-eyebrow">IPPAN ADMINISTRATION</div>
           <h1>{t(title)}</h1>
@@ -155,7 +163,7 @@ export function InstitutionalAdmin({ area }: { area: string }) {
       </div>
       {area === "website" && (
         <>
-          <div className="tabs">
+          <div className="tabs" hidden={embedded}>
             {["Homepage", "Pages", "Leadership", "Media"].map((x) => (
               <button
                 className={tab === x ? "active" : ""}
@@ -174,6 +182,15 @@ export function InstitutionalAdmin({ area }: { area: string }) {
             set={setQ}
             placeholder="Search institutional content…"
           />
+          {embedded && (
+            <button
+              className="button primary"
+              onClick={() => open(tab === "Leadership" ? "profile" : "media")}
+            >
+              <Plus size={16} />
+              Add {tab === "Leadership" ? "profile" : "media"}
+            </button>
+          )}
           {tab === "Homepage" ? (
             <HomepageEditor />
           ) : tab === "Pages" ? (
