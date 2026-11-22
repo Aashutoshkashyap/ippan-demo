@@ -1,0 +1,43 @@
+import { NextResponse } from "next/server";
+import { decodeEsewaRedirect, EsewaV2PaymentProvider, getPaymentProvider } from "@/lib/server/payment-provider";
+import { loadProviderSecret } from "@/lib/server/provider-config-service";
+import { settleVerifiedCheckout } from "@/lib/server/esewa-settlement";
+import {getBackendMode} from '@/lib/server/backend-mode';
+import {handleNeonEsewaReturn} from '@/lib/server/neon-esewa-return';
+import { parseEsewaAmount } from "@/lib/server/esewa-amount";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
+
+const redirect = (request: Request, status: string) => {
+  const destination = new URL("/dashboard/payments", request.url);
+  destination.searchParams.set("payment", status);
+  return NextResponse.redirect(destination, 303);
+};
+
+async function handle(request: Request) {
+  if(getBackendMode()!=='legacy')return handleNeonEsewaReturn(request);
+  const configured = await loadProviderSecret("payment");
+  if (!configured || configured.providerName !== "esewa") return redirect(request, "unavailable");
+  const input = request.method === "POST" ? Object.fromEntries((await request.formData()).entries()) : Object.fromEntries(new URL(request.url).searchParams.entries());
+  if (input.state === "failed") return redirect(request, "failed");
+  const encoded = typeof input.data === "string" ? input.data : "";
+  if (!encoded || encoded.length > 16_384) return redirect(request, "pending");
+  try {
+    const payload = decodeEsewaRedirect(encoded);
+    const provider = getPaymentProvider({ providerName: configured.providerName, secret: configured.secret, publicConfig: configured.publicConfig });
+    if (!(provider instanceof EsewaV2PaymentProvider) || !provider.verifyRedirectPayload(payload)) return redirect(request, "unverified");
+    const reference = typeof payload.transaction_uuid === "string" ? payload.transaction_uuid : "";
+    const amount = parseEsewaAmount(payload.total_amount);
+    if (!reference || !Number.isFinite(amount)) return redirect(request, "unverified");
+    const verified = await provider.lookupStatus({ reference, amount });
+    if (verified.status === "pending") return redirect(request, "pending");
+    const settled = await settleVerifiedCheckout({ provider: "esewa", reference, amount, status: verified.status, transactionId: verified.transactionId });
+    return redirect(request, settled.status);
+  } catch {
+    return redirect(request, "pending");
+  }
+}
+
+export const GET = handle;
+export const POST = handle;

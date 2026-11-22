@@ -1,0 +1,46 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+.next
+.next-neon-staging
+out
+.vercel
+*.tsbuildinfo
+/tmp/pdfs/
+*.local
+.env
+.env.*
+.migration.env
+.seeds/*.json
+!.seeds/users.example.json
+supabase/.temp/
+
+# Local research/source captures (kept out of application releases)
+Education_Directory_Aug2026_With_Descriptions.xlsx
+Edusanjal - Your Guide to Education in Nepal.html
+Edusanjal - Your Guide to Education in Nepal_files/
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+.ippan-data/
+output/playwright/
+
+!.env.example

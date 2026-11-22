@@ -1,0 +1,854 @@
+import { Label as InputFieldLabel } from "@/components/ui/label";
+import { useEffect, useMemo, useState } from "react";
+import JobApplicantReview from "@/components/jobs/JobApplicantReview";
+import { MentorSessionPipeline } from "@/components/mentors/MentorSessionPipeline";
+import { Link } from "react-router-dom";
+import {
+  AlertCircle,
+  ArrowUpRight,
+  Bell,
+  BriefcaseBusiness,
+  Building2,
+  CalendarDays,
+  ChevronRight,
+  Clock3,
+  LogOut,
+  MessageCircle,
+  Search,
+  Sparkles,
+  Star,
+  Target,
+  UserRoundSearch,
+  Users,
+} from "lucide-react";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { requestRoleWorkspace, useNeonRoleWorkspaces } from "@/lib/neon/role-workspaces-client";
+import RoleOwnerManagement, {
+  type RoleOwnerSnapshot,
+} from "@/components/owner/RoleOwnerManagement";
+
+type WorkspaceRole = "company" | "mentor";
+
+interface RoleWorkspaceProps {
+  role: WorkspaceRole;
+}
+
+interface WorkspaceStat {
+  label: string;
+  value: string;
+  note: string;
+}
+
+interface QueueItem {
+  id: string;
+  title: string;
+  detail: string;
+  action: string;
+  href: string;
+  sortAt: number;
+}
+
+interface SubscriptionSummary {
+  packageName: string;
+  status: string;
+  paymentStatus: string;
+  accessMode: string;
+  expiryDate: string | null;
+  active: boolean;
+}
+
+interface WorkspaceLiveData {
+  stats: WorkspaceStat[];
+  queue: QueueItem[];
+  subscription: SubscriptionSummary;
+  activityCount: number;
+  activityLabel: string;
+  statusLabel: string;
+  profileMissing: boolean;
+}
+
+const emptySubscription: SubscriptionSummary = {
+  packageName: "No package",
+  status: "inactive",
+  paymentStatus: "pending",
+  accessMode: "none",
+  expiryDate: null,
+  active: false,
+};
+
+const emptyOwnerSnapshot: RoleOwnerSnapshot = {
+  company: null,
+  mentor: null,
+  jobs: [],
+  events: [],
+  services: [],
+  jobApplications: [],
+  eventRegistrations: [],
+  mentorBookings: [],
+};
+
+const workspaceContent = {
+  company: {
+    eyebrow: "Recruiter workspace",
+    title: "Build a team around proof, not paperwork.",
+    description:
+      "Review verified skills, manage your hiring pipeline and turn challenges into high-signal recruiting moments.",
+    icon: BriefcaseBusiness,
+    actions: [
+      { label: "Review owned activity", href: "/company#pipeline" },
+      { label: "Browse job board", href: "/jobs" },
+      { label: "View public events", href: "/events" },
+    ],
+    emptyQueue: "No owned jobs or events are available yet.",
+  },
+  mentor: {
+    eyebrow: "Mentor workspace",
+    title: "Make every conversation move a career forward.",
+    description:
+      "Keep sessions, mentee goals and follow-ups in one calm workspace built for meaningful progress.",
+    icon: UserRoundSearch,
+    actions: [
+      { label: "Review session queue", href: "/mentor#pipeline" },
+      { label: "View mentor directory", href: "/mentorship" },
+      { label: "View public events", href: "/events" },
+    ],
+    emptyQueue: "No upcoming bookings or owned events are available yet.",
+  },
+};
+
+const formatDateTime = (value: string | null | undefined) => {
+  if (!value) return "Date not set";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Date not set";
+  return new Intl.DateTimeFormat("en-NP", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Asia/Kathmandu",
+  }).format(parsed);
+};
+
+const prettify = (value: string | null | undefined) =>
+  value ? value.replaceAll("_", " ") : "pending";
+
+const isSubscriptionActive = (subscription: any) => {
+  if (!subscription) return false;
+  const now = Date.now();
+  const startsAt = new Date(subscription.start_date).getTime();
+  const expiresAt = new Date(subscription.expiry_date).getTime();
+  return (
+    ["active", "trialing"].includes(subscription.status) &&
+    ["success", "not_required"].includes(subscription.payment_status) &&
+    Number.isFinite(startsAt) &&
+    Number.isFinite(expiresAt) &&
+    startsAt <= now &&
+    expiresAt > now
+  );
+};
+
+const loadSubscription = async (
+  db: any,
+  userId: string,
+  entityType: WorkspaceRole,
+  entityId: string | null,
+  addFailure: (label: string) => void,
+): Promise<SubscriptionSummary> => {
+  const [subscriptionResult, entitlementResult] = await Promise.all([
+    db.from("subscriptions")
+      .select("id, package_id, entity_type, entity_id, start_date, expiry_date, status, payment_status")
+      .eq("user_id", userId)
+      .is("deleted_at", null)
+      .order("expiry_date", { ascending: false }),
+    db.rpc("get_my_module_entitlements"),
+  ]);
+
+  if (subscriptionResult.error) {
+    addFailure("subscription");
+    return emptySubscription;
+  }
+
+  if (entitlementResult.error) addFailure("module entitlement");
+  const moduleKey = entityType === "company" ? "jobs" : "mentor";
+  const entitlement = (entitlementResult.data ?? []).find((item: any) =>
+    item.module_key === moduleKey && item.entity_type === entityType && (!entityId || item.entity_id === entityId)
+      && item.status === "active" && new Date(item.start_at).getTime() <= Date.now()
+      && (!item.expires_at || new Date(item.expires_at).getTime() > Date.now()),
+  );
+  if (entitlement) {
+    return {
+      packageName: entitlement.package_name ?? "Assigned module access",
+      status: "active",
+      paymentStatus: entitlement.source === "ESEWA_PURCHASE" ? "success" : "not_required",
+      accessMode: entitlement.features?.lead_viewing ? "read_only" : "none",
+      expiryDate: entitlement.expires_at ?? null,
+      active: true,
+    };
+  }
+
+  const rows = subscriptionResult.data ?? [];
+  const entityRows = rows.filter(
+    (item: any) => item.entity_type === entityType && (!entityId || item.entity_id === entityId),
+  );
+  const userRows = rows.filter((item: any) => item.entity_type === "user");
+  const candidates = [...entityRows, ...userRows];
+  const subscription = candidates.find(isSubscriptionActive) ?? candidates[0];
+
+  if (!subscription) return emptySubscription;
+
+  const packageResult = await db
+    .from("packages")
+    .select("name, lead_access_mode")
+    .eq("id", subscription.package_id)
+    .maybeSingle();
+
+  if (packageResult.error) addFailure("package details");
+
+  return {
+    packageName: packageResult.data?.name ?? "Assigned package",
+    status: subscription.status,
+    paymentStatus: subscription.payment_status,
+    accessMode: packageResult.data?.lead_access_mode ?? "none",
+    expiryDate: subscription.expiry_date,
+    active: isSubscriptionActive(subscription),
+  };
+};
+
+const RoleWorkspace = ({ role }: RoleWorkspaceProps) => {
+  const { user, profile, signOut } = useAuth();
+  const content = workspaceContent[role];
+  const WorkspaceIcon = content.icon;
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(true);
+  const [failedSources, setFailedSources] = useState<string[]>([]);
+  const [reloadVersion, setReloadVersion] = useState(0);
+  const [ownerSnapshot, setOwnerSnapshot] = useState<RoleOwnerSnapshot>(emptyOwnerSnapshot);
+  const [entityOptions, setEntityOptions] = useState<Array<{ id: string; label: string }>>([]);
+  const [selectedEntityId, setSelectedEntityId] = useState<string | null>(null);
+  const [workspaceLocked, setWorkspaceLocked] = useState(false);
+  const [capabilities, setCapabilities] = useState<Record<string, boolean>>({});
+  const [liveData, setLiveData] = useState<WorkspaceLiveData>({
+    stats: [],
+    queue: [],
+    subscription: emptySubscription,
+    activityCount: 0,
+    activityLabel: role === "company" ? "new lead records" : "unread messages",
+    statusLabel: "Loading",
+    profileMissing: false,
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    let isCurrent = true;
+
+    const loadWorkspace = async () => {
+      setIsLoading(true);
+      setFailedSources([]);
+      setOwnerSnapshot(emptyOwnerSnapshot);
+      if (useNeonRoleWorkspaces) {
+        try {
+          const result = await requestRoleWorkspace(`/api/v1/neon-staging/role-workspaces?role=${role}${selectedEntityId ? `&entityId=${encodeURIComponent(selectedEntityId)}` : ""}`) as {
+            entityOptions: Array<{ id: string; label: string }>; entityId: string | null;
+            snapshot: RoleOwnerSnapshot; locked: boolean; capabilities: Record<string, boolean>;
+            subscription: { package_name?: string; status: string; source?: string; expires_at?: string | null } | null;
+          };
+          if (!isCurrent) return;
+          setEntityOptions(result.entityOptions);
+          setWorkspaceLocked(result.locked);
+          setCapabilities(result.capabilities);
+          setOwnerSnapshot(result.snapshot);
+          const snapshot = result.snapshot;
+          const applications = snapshot.jobApplications.length;
+          const registrations = snapshot.eventRegistrations.length;
+          const upcoming = snapshot.mentorBookings.filter(booking => new Date(booking.scheduled_start).getTime() >= Date.now() && ["pending", "confirmed"].includes(booking.status));
+          const queue: QueueItem[] = [
+            ...snapshot.jobs.map(job => ({ id: `job-${job.id}`, title: job.title, detail: `${prettify(job.status)} · ${snapshot.jobApplications.filter(a => a.job_id === job.id).length} applications`, action: "View listing", href: `/jobs/${job.id}`, sortAt: new Date(job.created_at).getTime() })),
+            ...snapshot.events.map(event => ({ id: `event-${event.id}`, title: event.title, detail: `${prettify(event.status)} · ${formatDateTime(event.start_date)}`, action: "View event", href: `/events/${event.id}`, sortAt: new Date(event.created_at).getTime() })),
+            ...upcoming.map(booking => ({ id: `booking-${booking.id}`, title: snapshot.services.find(service => service.id === booking.mentor_service_id)?.title || "Mentoring session", detail: `${formatDateTime(booking.scheduled_start)} · ${prettify(booking.status)}`, action: "Upcoming", href: "/mentor#pipeline", sortAt: new Date(booking.scheduled_start).getTime() })),
+          ].sort((a, b) => role === "mentor" ? a.sortAt - b.sortAt : b.sortAt - a.sortAt).slice(0, 5);
+          const subscription = result.subscription;
+          setLiveData({
+            stats: role === "company" ? [
+              { label: "Published jobs", value: String(snapshot.jobs.filter(job => job.status === "published").length), note: `${snapshot.jobs.length} total` },
+              { label: "Applications", value: result.capabilities.jobApplications ? String(applications) : "—", note: "Selected company" },
+              { label: "Owned events", value: String(snapshot.events.length), note: "Assigned events" },
+              { label: "Registrations", value: String(registrations), note: "Assigned events" },
+            ] : [
+              { label: "Upcoming", value: String(upcoming.length), note: `${snapshot.mentorBookings.length} bookings` },
+              { label: "Active services", value: String(snapshot.services.filter(service => service.is_active).length), note: `${snapshot.services.length} total` },
+              { label: "Mentor status", value: prettify(snapshot.mentor?.approval_status), note: "Selected mentor" },
+              { label: "Owned events", value: String(snapshot.events.length), note: "Assigned events" },
+            ], queue,
+            subscription: { packageName: subscription?.package_name || (result.locked ? "Access unavailable" : "Assigned module access"),
+              status: result.locked ? subscription?.status === "active" ? "expired" : subscription?.status || "inactive" : "active",
+              paymentStatus: subscription?.source === "ESEWA_PURCHASE" ? "success" : "not_required", accessMode: result.locked ? "none" : "active",
+              expiryDate: subscription?.expires_at || null, active: !result.locked },
+            activityCount: role === "company" ? applications + registrations : upcoming.length,
+            activityLabel: role === "company" ? "application and registration records" : "upcoming sessions",
+            statusLabel: result.locked ? "Workspace locked" : "Active", profileMissing: !result.entityId,
+          });
+        } catch (error) {
+          if (isCurrent) { setWorkspaceLocked(true); setCapabilities({}); setFailedSources([error instanceof Error ? error.message : "Workspace unavailable"]); }
+        } finally { if (isCurrent) setIsLoading(false); }
+        return;
+      }
+      const db = supabase as any;
+      const failures = new Set<string>();
+      const addFailure = (label: string) => failures.add(label);
+
+      if (role === "company") {
+        const [companyResult, jobsResult, eventsResult] = await Promise.all([
+          db
+            .from("companies")
+            .select("id, name, status, is_verified")
+            .eq("user_id", user.id)
+            .is("deleted_at", null)
+            .maybeSingle(),
+          db
+            .from("jobs")
+            .select("id, company_id, title, description, location, job_type, experience_level, is_remote, application_deadline, expires_at, status, is_active, created_at")
+            .eq("owner_user_id", user.id)
+            .is("deleted_at", null)
+            .order("created_at", { ascending: false }),
+          db
+            .from("events")
+            .select("id, organizer_type, organizer_id, title, description, event_type, format, location, meeting_url, start_date, end_date, registration_deadline, capacity, ticket_price, currency, status, attachment_path, attachment_name, attachment_mime_type, created_at")
+            .eq("organizer_user_id", user.id)
+            .eq("organizer_type", "company")
+            .is("deleted_at", null)
+            .order("created_at", { ascending: false }),
+        ]);
+
+        if (companyResult.error) addFailure("company profile");
+        if (jobsResult.error) addFailure("owned jobs");
+        if (eventsResult.error) addFailure("owned events");
+
+        const company = companyResult.data;
+        const jobs = jobsResult.data ?? [];
+        const events = eventsResult.data ?? [];
+        const subscription = await loadSubscription(
+          db,
+          user.id,
+          "company",
+          company?.id ?? null,
+          addFailure,
+        );
+        const jobIds = jobs.map((job: any) => job.id);
+        const eventIds = events.map((event: any) => event.id);
+
+        const [applicationsResult, registrationsResult] = await Promise.all([
+          jobIds.length
+            ? db
+                .from("job_applications")
+                .select("id, job_id, full_name, email, status, applied_at", { count: "exact" })
+                .in("job_id", jobIds)
+                .is("deleted_at", null)
+            : Promise.resolve({ data: [], count: 0, error: null }),
+          eventIds.length
+            ? db
+                .from("event_registrations")
+                .select("id, event_id, status, payment_status, ticket_quantity, form_data, registered_at", { count: "exact" })
+                .in("event_id", eventIds)
+                .is("deleted_at", null)
+            : Promise.resolve({ data: [], count: 0, error: null }),
+        ]);
+
+        if (applicationsResult.error) addFailure("job applications");
+        if (registrationsResult.error) addFailure("event registrations");
+
+        const applications = applicationsResult.data ?? [];
+        const registrations = registrationsResult.data ?? [];
+        const applicationCountByJob = new Map<string, number>();
+        applications.forEach((application: any) => {
+          applicationCountByJob.set(
+            application.job_id,
+            (applicationCountByJob.get(application.job_id) ?? 0) + 1,
+          );
+        });
+        const registrationCountByEvent = new Map<string, number>();
+        registrations.forEach((registration: any) => {
+          registrationCountByEvent.set(
+            registration.event_id,
+            (registrationCountByEvent.get(registration.event_id) ?? 0) + 1,
+          );
+        });
+
+        const queue: QueueItem[] = [
+          ...jobs.map((job: any) => ({
+            id: `job-${job.id}`,
+            title: job.title,
+            detail: `${applicationCountByJob.get(job.id) ?? 0} applications · ${prettify(job.status)}`,
+            action: "View listing",
+            href: "/jobs",
+            sortAt: new Date(job.created_at).getTime(),
+          })),
+          ...events.map((event: any) => ({
+            id: `event-${event.id}`,
+            title: event.title,
+            detail: `${registrationCountByEvent.get(event.id) ?? 0} registrations · ${formatDateTime(event.start_date)}`,
+            action: "View event",
+            href: "/events",
+            sortAt: new Date(event.created_at).getTime(),
+          })),
+        ]
+          .sort((a, b) => b.sortAt - a.sortAt)
+          .slice(0, 5);
+
+        const applicationsCount = applicationsResult.count ?? applications.length;
+        const registrationsCount = registrationsResult.count ?? registrations.length;
+        const canReadLeads = subscription.active && subscription.accessMode !== "none";
+        const stats: WorkspaceStat[] = [
+          {
+            label: "Published jobs",
+            value: String(jobs.filter((job: any) => job.status === "published" && job.is_active).length),
+            note: `${jobs.length} total`,
+          },
+          {
+            label: "Applications",
+            value: canReadLeads ? String(applicationsCount) : "—",
+            note: canReadLeads ? "Owned jobs" : "Plan required",
+          },
+          {
+            label: "Owned events",
+            value: String(events.length),
+            note: `${events.filter((event: any) => ["approved", "published"].includes(event.status)).length} published`,
+          },
+          {
+            label: "Registrations",
+            value: canReadLeads ? String(registrationsCount) : "—",
+            note: canReadLeads ? "Owned events" : "Plan required",
+          },
+        ];
+
+        if (isCurrent) {
+          setOwnerSnapshot({
+            company: company ? { id: company.id, name: company.name } : null,
+            mentor: null,
+            jobs,
+            events,
+            services: [],
+            jobApplications: applications,
+            eventRegistrations: registrations,
+            mentorBookings: [],
+          });
+          setLiveData({
+            stats,
+            queue,
+            subscription,
+            activityCount: canReadLeads ? applicationsCount + registrationsCount : 0,
+            activityLabel: canReadLeads ? "application and registration records" : "lead records locked by plan",
+            statusLabel: company?.status ? prettify(company.status) : "Profile missing",
+            profileMissing: !company,
+          });
+        }
+      } else {
+        const [mentorResult, eventsResult, unreadMessagesResult] = await Promise.all([
+          db
+            .from("mentors")
+            .select("id, headline, description, expertise, hourly_rate, years_experience, is_available, availability, approval_status, rating, total_sessions")
+            .eq("user_id", user.id)
+            .is("deleted_at", null)
+            .maybeSingle(),
+          db
+            .from("events")
+            .select("id, organizer_type, organizer_id, title, description, event_type, format, location, meeting_url, start_date, end_date, registration_deadline, capacity, ticket_price, currency, status, attachment_path, attachment_name, attachment_mime_type, created_at")
+            .eq("organizer_user_id", user.id)
+            .eq("organizer_type", "mentor")
+            .is("deleted_at", null)
+            .order("created_at", { ascending: false }),
+          db
+            .from("messages")
+            .select("id", { count: "exact", head: true })
+            .eq("receiver_id", user.id)
+            .eq("is_read", false),
+        ]);
+
+        if (mentorResult.error) addFailure("mentor profile");
+        if (eventsResult.error) addFailure("owned events");
+        if (unreadMessagesResult.error) addFailure("unread messages");
+
+        const mentor = mentorResult.data;
+        const events = eventsResult.data ?? [];
+        const mentorId = mentor?.id ?? null;
+        const mentorEventIds = events.map((event: any) => event.id);
+        const [servicesResult, bookingsResult, registrationsResult, subscription] = await Promise.all([
+          mentorId
+            ? db
+                .from("mentor_services")
+                .select("id, mentor_id, title, description, session_type, duration_minutes, capacity, is_active, price, currency, created_at")
+                .eq("mentor_id", mentorId)
+                .is("deleted_at", null)
+                .order("created_at", { ascending: false })
+            : Promise.resolve({ data: [], error: null }),
+          mentorId
+            ? db
+                .from("mentor_bookings")
+                .select("id, mentor_service_id, status, payment_status, amount, currency, scheduled_start, scheduled_end, form_data, created_at")
+                .eq("mentor_id", mentorId)
+                .is("deleted_at", null)
+                .order("scheduled_start", { ascending: true })
+            : Promise.resolve({ data: [], error: null }),
+          mentorEventIds.length
+            ? db
+                .from("event_registrations")
+                .select("id, event_id, status, payment_status, ticket_quantity, form_data, registered_at")
+                .in("event_id", mentorEventIds)
+                .is("deleted_at", null)
+                .order("registered_at", { ascending: false })
+            : Promise.resolve({ data: [], error: null }),
+          loadSubscription(db, user.id, "mentor", mentorId, addFailure),
+        ]);
+
+        if (servicesResult.error) addFailure("mentor services");
+        if (bookingsResult.error) addFailure("mentor bookings");
+        if (registrationsResult.error) addFailure("event registrations");
+
+        const services = servicesResult.data ?? [];
+        const bookings = bookingsResult.data ?? [];
+        const now = Date.now();
+        const upcomingBookings = bookings.filter((booking: any) => {
+          const scheduledAt = new Date(booking.scheduled_start).getTime();
+          return (
+            scheduledAt >= now &&
+            !["declined", "completed", "cancelled", "no_show"].includes(booking.status)
+          );
+        });
+        const serviceById = new Map(
+          services.map((service: any) => [service.id, service.title]),
+        );
+        const queue: QueueItem[] = [
+          ...upcomingBookings.map((booking: any) => ({
+            id: `booking-${booking.id}`,
+            title: serviceById.get(booking.mentor_service_id) ?? "Mentoring session",
+            detail: `${formatDateTime(booking.scheduled_start)} · ${prettify(booking.status)}`,
+            action: "Upcoming",
+            href: "/mentor#pipeline",
+            sortAt: new Date(booking.scheduled_start).getTime(),
+          })),
+          ...events.map((event: any) => ({
+            id: `event-${event.id}`,
+            title: event.title,
+            detail: `${formatDateTime(event.start_date)} · ${prettify(event.status)}`,
+            action: "View event",
+            href: "/events",
+            sortAt: new Date(event.start_date).getTime(),
+          })),
+        ]
+          .sort((a, b) => a.sortAt - b.sortAt)
+          .slice(0, 5);
+
+        const stats: WorkspaceStat[] = [
+          {
+            label: "Upcoming",
+            value: String(upcomingBookings.length),
+            note: `${bookings.length} bookings`,
+          },
+          {
+            label: "Active services",
+            value: String(services.filter((service: any) => service.is_active).length),
+            note: `${services.length} total`,
+          },
+          {
+            label: "Mentor rating",
+            value: mentor?.rating == null ? "—" : String(mentor.rating),
+            note: `${mentor?.total_sessions ?? 0} sessions`,
+          },
+          {
+            label: "Owned events",
+            value: String(events.length),
+            note: `${events.filter((event: any) => ["approved", "published"].includes(event.status)).length} published`,
+          },
+        ];
+
+        if (isCurrent) {
+          setOwnerSnapshot({
+            company: null,
+            mentor: mentor
+              ? {
+                  id: mentor.id,
+                  headline: mentor.headline,
+                  description: mentor.description,
+                  expertise: mentor.expertise,
+                  hourly_rate: mentor.hourly_rate,
+                  years_experience: mentor.years_experience,
+                  is_available: mentor.is_available,
+                  availability: mentor.availability,
+                  approval_status: mentor.approval_status,
+                }
+              : null,
+            jobs: [],
+            events,
+            services,
+            jobApplications: [],
+            eventRegistrations: registrationsResult.data ?? [],
+            mentorBookings: bookings,
+          });
+          setLiveData({
+            stats,
+            queue,
+            subscription,
+            activityCount: unreadMessagesResult.count ?? 0,
+            activityLabel: "unread mentor messages",
+            statusLabel: mentor?.approval_status ? prettify(mentor.approval_status) : "Profile missing",
+            profileMissing: !mentor,
+          });
+        }
+      }
+
+      if (isCurrent) {
+        setFailedSources([...failures]);
+        setIsLoading(false);
+      }
+    };
+
+    void loadWorkspace();
+    return () => {
+      isCurrent = false;
+    };
+  }, [reloadVersion, role, user, selectedEntityId]);
+
+  const filteredQueue = useMemo(() => {
+    const query = searchQuery.trim().toLowerCase();
+    if (!query) return liveData.queue;
+    return liveData.queue.filter(
+      (item) => item.title.toLowerCase().includes(query) || item.detail.toLowerCase().includes(query),
+    );
+  }, [liveData.queue, searchQuery]);
+
+  const planStatus = liveData.subscription.active
+    ? "Active"
+    : prettify(liveData.subscription.status);
+  const accessMode = liveData.subscription.accessMode === "none"
+    ? "Locked"
+    : prettify(liveData.subscription.accessMode);
+  const workspaceHref = `/${role}#pipeline`;
+
+  return (
+    <div className="min-h-screen w-full overflow-x-hidden bg-white text-[#17162e]">
+      <div className="min-h-screen w-full overflow-x-hidden bg-white">
+        <header className="flex h-16 items-center gap-3 border-b border-[#f0e3da] bg-white/90 px-4 backdrop-blur sm:px-6">
+          <Link to="/" className="flex items-center gap-2 font-display font-bold">
+            <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#c2410c] text-white shadow-[0_8px_20px_rgba(249,115,22,0.3)]">
+              <Sparkles className="h-4 w-4" />
+            </span>
+            <span className="hidden sm:inline">Merotalent</span>
+          </Link>
+          <div className="relative ml-auto hidden max-w-md flex-1 md:block">
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#8e8ba5]" />
+            <Input
+              aria-label="Search workspace activity"
+              placeholder="Search owned activity…"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              className="h-10 rounded-xl border border-[#f0e3da] bg-[#fff8f3] pl-10 shadow-none"
+            />
+          </div>
+          <Button asChild variant="ghost" size="icon" className="relative rounded-xl hover:bg-[#fff1e8] hover:text-[#c2410c]">
+            <Link to={workspaceHref} aria-label={`${liveData.activityCount} ${liveData.activityLabel}`}>
+              <Bell className="h-5 w-5" />
+              {liveData.activityCount > 0 && (
+                <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-[#c2410c] ring-2 ring-white" />
+              )}
+            </Link>
+          </Button>
+          <div className="grid h-9 w-9 place-items-center rounded-full bg-[#dff5ec] text-sm font-bold text-[#28725a]">
+            {profile?.full_name?.charAt(0) || "M"}
+          </div>
+          <Button variant="ghost" size="icon" className="rounded-xl hover:bg-[#fff1e8] hover:text-[#c2410c]" onClick={signOut} aria-label="Sign out">
+            <LogOut className="h-4 w-4" />
+          </Button>
+        </header>
+
+        <main className="space-y-4 p-4 sm:p-6 lg:p-8">
+          {useNeonRoleWorkspaces && entityOptions.length > 1 && (
+            <div className="space-y-2">
+              <InputFieldLabel htmlFor="managed-role-entity" className="text-sm font-semibold">Managed {role === "company" ? "company" : "mentor"}</InputFieldLabel>
+              <select id="managed-role-entity" className="block w-full max-w-xl rounded-xl border border-[#eadfd7] bg-white p-3" value={selectedEntityId || entityOptions[0]?.id || ""} onChange={event => setSelectedEntityId(event.target.value)}>
+                {entityOptions.map(option => <option key={option.id} value={option.id}>{option.label}</option>)}
+              </select>
+            </div>
+          )}
+          {useNeonRoleWorkspaces && workspaceLocked && !isLoading && !failedSources.length && (
+            <div role="alert" className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+              <h2 className="font-semibold">{role === "company" ? "Recruiter" : "Mentor"} workspace locked</h2>
+              <p className="mt-2">Your subscription/trial has expired or this workspace is not assigned. Renew or request access to manage this module.</p>
+              <Button asChild variant="outline" className="mt-3"><Link to="/dashboard/payments">View payments and renew</Link></Button>
+            </div>
+          )}
+          {(failedSources.length > 0 || liveData.profileMissing) && !isLoading && (
+            <div role="alert" className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+              <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+              <p>
+                {liveData.profileMissing
+                  ? `No owned ${role} profile was found for this account. `
+                  : ""}
+                {failedSources.length > 0
+                  ? `Some data is unavailable under the current access policy: ${failedSources.join(", ")}.`
+                  : "Create or assign the profile before owner data can appear here."}
+              </p>
+            </div>
+          )}
+
+          <section className="grid items-stretch gap-4 xl:grid-cols-[1fr_280px]">
+            <article className="relative overflow-hidden rounded-[26px] border border-[#f0e3da] bg-white p-5 shadow-[0_18px_45px_rgba(79,48,30,0.07)] sm:p-7">
+              <div className="mb-7 flex flex-wrap items-center gap-3 border-b border-[#f3e8e1] pb-5">
+                <div className="inline-flex items-center gap-2 rounded-xl bg-[#fff1e8] px-3 py-2 text-xs font-semibold text-[#c84f08]">
+                  <WorkspaceIcon className="h-3.5 w-3.5" />
+                  {content.eyebrow}
+                </div>
+                <div className="hidden h-6 w-px bg-[#eadfd7] sm:block" />
+                <span className="text-xs font-medium capitalize text-[#8d8179]">
+                  {isLoading ? "Loading account data" : liveData.statusLabel}
+                </span>
+                <span className="ml-auto text-xs text-[#8d8179]">Account snapshot</span>
+              </div>
+              <h1 className="max-w-2xl font-display text-3xl font-bold leading-[1.08] tracking-[-0.035em] sm:text-4xl">
+                {content.title}
+              </h1>
+              <p className="mt-3 max-w-2xl text-sm leading-6 text-[#7f746d] sm:text-base">
+                {content.description}
+              </p>
+              <div className="mt-6 flex flex-wrap gap-2">
+                {content.actions.map((action, index) => (
+                  <Button
+                    key={action.label}
+                    asChild
+                    className={
+                      index === 0
+                        ? "rounded-xl bg-[#c2410c] text-white shadow-[0_10px_24px_rgba(249,115,22,0.25)] hover:bg-[#9a3412]"
+                        : "rounded-xl border border-[#eadfd7] bg-white text-[#17162e] hover:border-[#fdba74] hover:bg-[#fff8f3]"
+                    }
+                  >
+                    <Link to={action.href}>
+                      {action.label}
+                      <ArrowUpRight className="h-4 w-4" />
+                    </Link>
+                  </Button>
+                ))}
+              </div>
+              <div className="absolute -right-16 -top-16 h-44 w-44 rounded-full border-[24px] border-[#fff1e8]" />
+            </article>
+
+            <article className="relative overflow-hidden rounded-[26px] bg-[#c2410c] p-6 text-white shadow-[0_20px_45px_rgba(249,115,22,0.22)] xl:-rotate-1">
+              <div className="grid h-12 w-12 place-items-center rounded-2xl bg-white/15">
+                <Users className="h-5 w-5" />
+              </div>
+              <h2 className="mt-7 font-display text-2xl font-bold">{liveData.subscription.packageName}</h2>
+              <p className="mt-2 max-w-[220px] text-sm leading-5 text-white/70">
+                {liveData.subscription.expiryDate
+                  ? `${planStatus} until ${formatDateTime(liveData.subscription.expiryDate)}`
+                  : "No subscription package is currently assigned to this workspace."}
+              </p>
+              <div className="mt-8 grid grid-cols-2 gap-4 border-t border-white/20 pt-5">
+                <div><strong className="block text-base capitalize">{planStatus}</strong><span className="text-xs text-white/65">Plan status</span></div>
+                <div><strong className="block text-base capitalize">{accessMode}</strong><span className="text-xs text-white/65">Lead access</span></div>
+              </div>
+              <div className="absolute -right-10 -top-8 h-28 w-28 rounded-full border-[18px] border-white/10" />
+            </article>
+          </section>
+
+          <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            {(isLoading ? Array.from({ length: 4 }) : liveData.stats).map((stat, index) => {
+              const StatIcon = [Target, Users, Star, CalendarDays][index];
+              const item = stat as WorkspaceStat | undefined;
+              return (
+                <article
+                  key={item?.label ?? `loading-${index}`}
+                  className="rounded-[22px] border border-[#f0e3da] bg-white p-4 shadow-[0_12px_32px_rgba(79,48,30,0.06)] sm:p-5"
+                >
+                  <div className="mb-5 flex items-center justify-between">
+                    <span className="grid h-9 w-9 place-items-center rounded-xl bg-[#fff1e8] text-[#c2410c]">
+                      <StatIcon className="h-4 w-4" />
+                    </span>
+                    <span className="text-xs font-medium text-[#8d8179]">{item?.note ?? "Loading"}</span>
+                  </div>
+                  <p className="text-2xl font-bold sm:text-3xl">{item?.value ?? "—"}</p>
+                  <p className="mt-1 text-xs text-[#8d8179] sm:text-sm">{item?.label ?? "Account data"}</p>
+                </article>
+              );
+            })}
+          </section>
+
+          {!isLoading && user && (!useNeonRoleWorkspaces || !workspaceLocked) && (
+            <RoleOwnerManagement
+              key={ownerSnapshot.company?.id || ownerSnapshot.mentor?.id || role}
+              role={role}
+              userId={user.id}
+              snapshot={ownerSnapshot}
+              capabilities={useNeonRoleWorkspaces ? capabilities : undefined}
+              onSaved={() => setReloadVersion((version) => version + 1)}
+            />
+          )}
+
+          <section id="pipeline" className="grid scroll-mt-20 gap-4 lg:grid-cols-[1.5fr_1fr]">
+            <article className="rounded-[24px] border border-[#f0e3da] bg-white p-5 shadow-[0_14px_38px_rgba(79,48,30,0.06)] sm:p-6">
+              <div className="mb-5 flex items-center justify-between">
+                <div>
+                  <h2 className="font-display text-xl font-bold">Focus queue</h2>
+                  <p className="mt-1 text-sm text-[#8d8179]">Recent owned records that deserve attention</p>
+                </div>
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to={role === "company" ? "/jobs" : "/mentorship"}>View public page</Link>
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {isLoading ? (
+                  Array.from({ length: 3 }).map((_, index) => (
+                    <div key={index} className="h-[72px] animate-pulse rounded-2xl bg-[#fff8f3]" />
+                  ))
+                ) : filteredQueue.length > 0 ? (
+                  filteredQueue.map((item) => (
+                    <Link
+                      key={item.id}
+                      to={item.href}
+                      className="group flex w-full items-center gap-3 rounded-2xl border border-transparent bg-[#fff8f3] p-4 text-left transition hover:border-[#fdba74] hover:bg-[#fff2e8]"
+                    >
+                      <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white text-[#c2410c] shadow-sm">
+                        {role === "company" ? <Building2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold">{item.title}</span>
+                        <span className="mt-0.5 block truncate text-xs text-[#8d8179]">{item.detail}</span>
+                      </span>
+                      <span className="hidden text-xs font-semibold text-[#c2410c] sm:block">{item.action}</span>
+                      <ChevronRight className="h-4 w-4 text-[#aaa8b9] transition group-hover:translate-x-1" />
+                    </Link>
+                  ))
+                ) : (
+                  <div className="rounded-2xl border border-dashed border-[#eadfd7] bg-[#fffdfb] px-5 py-9 text-center text-sm text-[#8d8179]">
+                    {searchQuery ? "No owned activity matches your search." : content.emptyQueue}
+                  </div>
+                )}
+              </div>
+            </article>
+
+            <article className="relative overflow-hidden rounded-[24px] bg-[#17162e] p-6 text-white shadow-[0_18px_40px_rgba(23,22,46,0.18)]">
+              <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[#8be3c9]/15">
+                <MessageCircle className="h-5 w-5 text-[#8be3c9]" />
+              </div>
+              <h2 className="mt-8 font-display text-2xl font-bold">
+                {liveData.activityCount > 0 ? "One good follow-up changes everything." : "Your live activity starts here."}
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-white/60">
+                {isLoading
+                  ? "Loading the latest account activity…"
+                  : liveData.activityCount > 0
+                    ? `${liveData.activityCount} ${liveData.activityLabel} need your attention.`
+                    : `There are no ${liveData.activityLabel} waiting right now.`}
+              </p>
+              <Button asChild className="mt-8 w-full rounded-xl bg-[#8be3c9] text-[#17162e] hover:bg-[#76d8bb]">
+                <Link to={workspaceHref}>Review workspace activity</Link>
+              </Button>
+              <div className="absolute -bottom-16 -right-14 h-40 w-40 rounded-full border-[22px] border-white/5" />
+            </article>
+          </section>
+          {role === "company" && (!useNeonRoleWorkspaces || (!workspaceLocked && capabilities.jobApplications)) && <JobApplicantReview key={ownerSnapshot.company?.id} companyId={useNeonRoleWorkspaces ? ownerSnapshot.company?.id : undefined} />}
+          {role === "mentor" && (!useNeonRoleWorkspaces || (!workspaceLocked && capabilities.bookings)) && <MentorSessionPipeline key={ownerSnapshot.mentor?.id} mentorId={useNeonRoleWorkspaces ? ownerSnapshot.mentor?.id : undefined} readOnly={useNeonRoleWorkspaces && !capabilities.bookingManagement} />}
+        </main>
+      </div>
+    </div>
+  );
+};
+
+export default RoleWorkspace;

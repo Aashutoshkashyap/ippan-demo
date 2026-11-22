@@ -1,0 +1,49 @@
+project_id = "dtirpilgzlsfryucanlg"
+
+[auth]
+additional_redirect_urls = ["https://www.merotalent.com/auth/callback", "https://www.merotalent.com/reset-password", "https://merotalent.com/auth/callback", "https://merotalent.com/reset-password", "http://localhost:3000/**", "http://localhost:3001/**", "https://*.vercel.app/**"]
+site_url = "https://www.merotalent.com"
+
+[auth.email]
+enable_confirmations = true
+max_frequency = "1m0s"
+otp_length = 8
+
+[auth.email.smtp]
+admin_email = "noreply@merotalent.com"
+host = "smtp.resend.com"
+port = 587
+user = "resend"
+pass = "env(RESEND_SMTP_PASSWORD)"
+sender_name = "MeroTalent"
+
+[auth.email.template.recovery]
+subject = "Reset your MeroTalent password"
+content_path = "./supabase/templates/recovery.html"
+
+[auth.email.template.confirmation]
+subject = "Confirm your MeroTalent account"
+content_path = "./supabase/templates/confirmation.html"
+
+[auth.email.template.invite]
+subject = "You are invited to MeroTalent"
+content_path = "./supabase/templates/invite.html"
+
+[auth.email.template.email_change]
+subject = "Confirm your new MeroTalent email address"
+content_path = "./supabase/templates/email_change.html"
+
+[auth.external.google]
+client_id = "634754884391-4ng4ir5ipurqd4mu5cvto38dpoqgn62s.apps.googleusercontent.com"
+enabled = true
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[db.pooler]
+default_pool_size = 15
+max_client_conn = 200
+
+[storage.vector]
+enabled = false
