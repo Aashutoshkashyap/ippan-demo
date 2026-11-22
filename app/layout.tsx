@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "@/ippan/styles.css";
+import "@/ippan/institutional.css";
 export const metadata: Metadata = {
   title: "IPPAN — Powering Nepal, Together",
   description:

@@ -63,6 +63,12 @@ import {
   RevenueChart,
 } from "./charts";
 import AdminModules from "./workspace-modules";
+import { OperationalOverview } from "./analytics";
+import {
+  InstitutionalAdmin,
+  NotificationPreferences,
+} from "./institutional-admin";
+import { useLanguage, LanguageSwitch } from "./i18n";
 const icons = {
   LayoutDashboard,
   Users,
@@ -79,6 +85,7 @@ const icons = {
 };
 export default function Workspace({ path }: { path: string }) {
   const { data, refresh, notify } = usePlatform();
+  const { t } = useLanguage();
   const [mobile, setMobile] = useState(false);
   const [search, setSearch] = useState("");
   const [overlay, setOverlay] = useState("");
@@ -168,7 +175,7 @@ export default function Workspace({ path }: { path: string }) {
                   onClick={() => setMobile(false)}
                 >
                   <Icon size={18} />
-                  <span>{label}</span>
+                  <span>{t(label)}</span>
                   {key === "members" &&
                     data.applications.filter((a) => a.status === "Pending")
                       .length > 0 && (
@@ -244,6 +251,7 @@ export default function Workspace({ path }: { path: string }) {
             </strong>
           </div>
           <div className="workspace-header-right">
+            <LanguageSwitch />
             <div className="global-search">
               <Search size={16} />
               <input
@@ -327,9 +335,20 @@ export default function Workspace({ path }: { path: string }) {
           {portal ? (
             <MemberPortal area={area} />
           ) : area === "overview" ? (
-            <Overview />
+            <OperationalOverview />
+          ) : [
+              "website",
+              "categories",
+              "renewals",
+              "meetings",
+              "audit",
+              "settings",
+              "reports",
+              "secretariat",
+            ].includes(area) ? (
+            <InstitutionalAdmin key={area} area={area} />
           ) : (
-            <AdminModules area={area} />
+            <AdminModules key={area} area={area} />
           )}
         </main>
         <footer className="workspace-footer">
@@ -1103,6 +1122,7 @@ function MemberPortal({ area }: { area: string }) {
           ))}
         </div>
       )}
+      {area === "notifications" && <NotificationPreferences />}
       {area === "notifications" && (
         <Panel title="Membership updates">
           {data.notifications.map((n) => (

@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Snapshot } from "./model";
+import { useLanguage } from "./i18n";
 export type Data = Snapshot;
 export type Action = (
   action: string,
@@ -57,6 +58,7 @@ export function Brand({ light = false }: { light?: boolean }) {
   );
 }
 export function Badge({ children }: { children: ReactNode }) {
+  const { t } = useLanguage();
   const s = String(children);
   return (
     <span
@@ -73,7 +75,7 @@ export function Badge({ children }: { children: ReactNode }) {
               : "neutral")
       }
     >
-      {children}
+      {typeof children === "string" ? t(children) : children}
     </span>
   );
 }
@@ -90,12 +92,13 @@ export function Panel({
   children: ReactNode;
   className?: string;
 }) {
+  const { t } = useLanguage();
   return (
     <section className={"panel " + className}>
       <div className="panel-head">
         <div>
-          <h3>{title}</h3>
-          {sub && <p>{sub}</p>}
+          <h3>{t(title)}</h3>
+          {sub && <p>{t(sub)}</p>}
         </div>
         {action}
       </div>
@@ -133,13 +136,16 @@ export function Field({
   required?: boolean;
   placeholder?: string;
 }) {
+  const { t } = useLanguage();
   return (
     <label className="field">
-      <span>{label}</span>
+      <span>{t(label)}</span>
       {options ? (
         <select name={name} defaultValue={value} required={required}>
           {options.map((o) => (
-            <option key={o}>{o}</option>
+            <option key={o} value={o}>
+              {t(o)}
+            </option>
           ))}
         </select>
       ) : type === "textarea" ? (
@@ -179,6 +185,7 @@ export function Form({
   label?: string;
   className?: string;
 }) {
+  const { t } = useLanguage();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   return (
@@ -212,7 +219,7 @@ export function Form({
       )}
       <button className="button primary" disabled={busy}>
         {busy ? <Loader2 className="spin" size={18} /> : null}
-        {busy ? "Saving…" : label}
+        {busy ? t("Saving…") : t(label)}
       </button>
     </form>
   );
@@ -326,10 +333,11 @@ export function DocumentLink({
   id: string;
   label?: string;
 }) {
+  const { locale } = useLanguage();
   return (
     <a
       className="button"
-      href={"/api/ippan/documents/" + id}
+      href={"/api/ippan/documents/" + id + (locale === "ne" ? "?lang=ne" : "")}
       target="_blank"
       rel="noreferrer"
     >

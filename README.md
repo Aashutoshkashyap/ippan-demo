@@ -84,3 +84,8 @@ The original Next.js routes/config and original dependency manifests are preserv
 Source: [Aashutoshkashyap/ippan-demo](https://github.com/Aashutoshkashyap/ippan-demo), branch `main`. This repository is connected to the existing [IPPAN Vercel project](https://vercel.com/aashutoshkashyaps-projects/ippan-demo), serving [ippan-demo.vercel.app](https://ippan-demo.vercel.app/).
 
 Automatic Git deployments are disabled in `vercel.json` to preserve the current production deployment. Pushing code runs GitHub verification, without deploying the website. See [deployment records](docs/ippan/DEPLOYMENT.md) before a separately authorized release.
+
+
+## Institutional platform update
+
+The [22 November release](docs/ippan/RELEASE-2026-11-22.md) adds the prescribed homepage hierarchy, bilingual institutional pages, shared hydropower analytics/map/filtering, page/media/leadership CMS, configurable membership categories, private meeting and correspondence documents, ticket categories, operational reports, audit/settings pages and Excel imports. All use the existing dedicated IPPAN data and authorization model. See the release notes for verified workflows and remaining institutional-data dependencies.

@@ -1,4 +1,6 @@
-# TOR-to-demo coverage matrix
+# Original TOR-to-demo coverage matrix
+
+> Historical baseline from 21 November. Several pending UI/CMS items below are superseded by the [22 November implementation release](RELEASE-2026-11-22.md). Retained as provenance, not the current completion report.
 
 Status meanings: **Implemented and verified** = automated or browser evidence recorded; **Implemented but not fully verified** = code/interface exists without complete scenario coverage; **Demonstration/simulated** = deliberately illustrative behavior; **Pending** = not implemented; **Blocked by external dependency** = needs approved content, services or an external decision. Direct user exclusions take precedence over the pasted brief: mobile applications and external integrations are out of this build.
 

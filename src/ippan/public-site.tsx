@@ -47,47 +47,64 @@ import {
 } from "./ui";
 import { Content, provinces, Event as PlatformEvent } from "./model";
 import { ProvinceChart } from "./charts";
+import {
+  InstitutionalHome,
+  InstitutionalAbout,
+  InstitutionalNavigation,
+  InstitutionalPage,
+  PublicSearch,
+  PublicAgm,
+  MediaGallery,
+  Newsletter,
+  ContactForm,
+} from "./institutional";
+import { HydropowerDashboard } from "./analytics";
+import { useLanguage, LanguageSwitch } from "./i18n";
 const publicNav = [
+  ["Home", "/"],
   ["About IPPAN", "/about"],
-  ["Our members", "/members"],
-  ["News & insights", "/news"],
-  ["Events", "/events"],
-  ["Resources", "/resources"],
+  ["Membership", "/membership"],
+  ["Member directory", "/members"],
+  ["Hydropower Database", "/hydropower"],
+  ["Energy Resource Centre", "/resources"],
+  ["News & Media", "/news"],
+  ["Publications", "/publications"],
+  ["Events & AGM", "/events"],
+  ["AGM", "/agm"],
+  ["Media gallery", "/media"],
+  ["Contact", "/contact"],
+  ["Search", "/search"],
 ];
 export default function PublicSite({ path }: { path: string }) {
   const { data } = usePlatform();
   const [menu, setMenu] = useState(false);
   const home = path === "/";
+  const { t, choose: c } = useLanguage();
   return (
     <div className={"public-site " + (home ? "is-home" : "")}>
       <div className="utility">
-        <span>THE VOICE OF NEPAL’S INDEPENDENT ENERGY PRODUCERS</span>
+        <span>
+          {c(
+            "THE VOICE OF NEPAL’S INDEPENDENT ENERGY PRODUCERS",
+            "नेपालका स्वतन्त्र ऊर्जा उत्पादकहरूको साझा आवाज",
+          )}
+        </span>
         <div>
           <Link href="/hydropower">Hydropower database</Link>
           <span className="utility-divider" />
           <Link href="/login">Secretariat login</Link>
-          <span>EN</span>
+          <LanguageSwitch />
         </div>
       </div>
       <header className="public-header">
         <Brand />
-        <nav aria-label="Main navigation">
-          {publicNav.map(([label, url]) => (
-            <Link
-              className={path.startsWith(url) ? "active" : ""}
-              key={url}
-              href={url}
-            >
-              {label}
-            </Link>
-          ))}
-        </nav>
+        <InstitutionalNavigation />
         <Link
           className="button primary header-portal"
           href={data.viewer?.role === "Member" ? "/portal" : "/login"}
         >
           <Users size={16} />
-          Member portal
+          {t("Member Login")}
         </Link>
         <button
           className="mobile-menu"
@@ -99,20 +116,16 @@ export default function PublicSite({ path }: { path: string }) {
       </header>
       {menu && (
         <nav className="mobile-nav">
-          {[
-            ...publicNav,
-            ["Hydropower database", "/hydropower"],
-            ["Member portal", "/login"],
-          ].map(([t, u]) => (
+          {[...publicNav, ["Member portal", "/login"]].map(([label, u]) => (
             <Link onClick={() => setMenu(false)} key={u} href={u}>
-              {t}
+              {t(label)}
             </Link>
           ))}
         </nav>
       )}
       <main>
         {home ? (
-          <Home />
+          <InstitutionalHome />
         ) : path.startsWith("/membership") ? (
           <Membership />
         ) : path === "/track" ? (
@@ -129,17 +142,47 @@ export default function PublicSite({ path }: { path: string }) {
           <Events path={path} />
         ) : path.startsWith("/hydropower") ? (
           <Hydropower path={path} />
+        ) : path.startsWith("/pages/") ? (
+          <InstitutionalPage slug={path.split("/")[2]} />
+        ) : path === "/media" ? (
+          <>
+            <PageIntro
+              eyebrow="IPPAN MEDIA"
+              title={c("Our community in action.", "हाम्रो समुदायका गतिविधि।")}
+              description={c(
+                "Institutional activities, photographs and video updates.",
+                "संस्थागत गतिविधि, तस्बिर र भिडियो।",
+              )}
+            />
+            <section className="section-wrap">
+              <MediaGallery />
+            </section>
+          </>
+        ) : path === "/search" ? (
+          <PublicSearch />
+        ) : path === "/agm" ? (
+          <PublicAgm />
         ) : path === "/contact" ? (
           <Contact />
         ) : (
-          <About />
+          <InstitutionalAbout />
         )}
       </main>
       <section className="join-banner">
         <div>
           <span className="eyebrow">TOGETHER, WE GENERATE POSSIBILITIES</span>
-          <h2>Be part of Nepal’s energy future.</h2>
-          <p>A stronger network. A shared purpose. A lasting impact.</p>
+          <h2>
+            {c(
+              "Be part of Nepal’s energy future.",
+              "नेपालको ऊर्जा भविष्यको हिस्सा बन्नुहोस्।",
+            )}
+          </h2>
+          <p>
+            {c(
+              "A stronger network. A shared purpose. A lasting impact.",
+              "बलियो सञ्जाल। साझा उद्देश्य। दिगो प्रभाव।",
+            )}
+          </p>
         </div>
         <Link href="/membership" className="button white">
           Become a member <Users size={18} />
@@ -197,358 +240,33 @@ export default function PublicSite({ path }: { path: string }) {
           </div>
           <div>
             <h4>Get in touch</h4>
-            <p>
-              Kandevta Complex, Kupondole
-              <br />
-              Lalitpur, Nepal
-            </p>
-            <a href="tel:+97715445444">+977 01 5445444</a>
-            <a href="mailto:info@ippan.org.np">info@ippan.org.np</a>
+            <p>{data.settings.contactAddress}</p>
+            <a
+              href={
+                "tel:" + data.settings.contactPhone?.replace(/[^+0-9]/g, "")
+              }
+            >
+              {data.settings.contactPhone}
+            </a>
+            <a href={"mailto:" + data.settings.contactEmail}>
+              {data.settings.contactEmail}
+            </a>
             <Link href="/contact">Contact the secretariat</Link>
           </div>
         </div>
+        <Newsletter />
         <div className="footer-bottom">
           <span>© 2026 IPPAN. All rights reserved.</span>
           <span className="demo-note">
             Evaluation demo · Sample records · {data.storage}
           </span>
-          <Link href="/track">Track your application</Link>
+          <Link href="/track">{t("Track your application")}</Link>
+          <Link href="/pages/privacy">
+            {c("Privacy & data", "गोपनीयता र तथ्याङ्क")}
+          </Link>
         </div>
       </footer>
     </div>
-  );
-}
-function Home() {
-  const { data } = usePlatform();
-  const capacity = data.projects.reduce((n, p) => n + p.capacity, 0);
-  return (
-    <>
-      <section className="hero">
-        <div className="hero-background" />
-        <div className="hero-content">
-          <span className="hero-kicker">
-            <span />
-            THE ENERGY OF A UNITED COMMUNITY
-          </span>
-          <h1>
-            {data.settings.heroTitle.split("\n").map((l, i) => (
-              <span key={i} className={i === 1 ? "accent" : ""}>
-                {l}
-                <br />
-              </span>
-            ))}
-          </h1>
-          <p>{data.settings.heroSubtitle}</p>
-          <div className="hero-actions">
-            <Link className="button lime" href="/membership">
-              Become a member
-              <Users size={18} />
-            </Link>
-            <Link className="hero-secondary" href="/about">
-              Discover IPPAN
-              <span className="round-icon">
-                <ArrowUpRight size={20} />
-              </span>
-            </Link>
-          </div>
-        </div>
-        <div className="hero-side">
-          <span className="vertical-label">
-            INDEPENDENT POWER. COLLECTIVE PROGRESS.
-          </span>
-          <div className="hero-year">
-            <strong>
-              Since
-              <br />
-              2001.
-            </strong>
-            <span>
-              A shared vision
-              <br />
-              for a brighter Nepal
-            </span>
-          </div>
-        </div>
-        <div className="hero-bottom">
-          <span>
-            <MapPin size={15} /> Powering possibilities across Nepal
-          </span>
-          <span>
-            SCROLL TO EXPLORE <span className="scroll-line" />
-          </span>
-          <span className="hero-image-caption">
-            Hydropower sector imagery · IPPAN
-          </span>
-        </div>
-      </section>
-      <section className="public-stats">
-        {[
-          [
-            data.members.length,
-            "Member companies",
-            "A connected energy community",
-          ],
-          [
-            capacity.toLocaleString() + " MW",
-            "Project capacity",
-            "Represented in our demo database",
-          ],
-          ["7", "Provinces connected", "One shared national ambition"],
-          ["25+", "Years of advocacy", "A legacy of collective progress"],
-        ].map(([v, t, s], i) => (
-          <div key={t}>
-            <span className="stat-index">
-              {["Membership", "Energy", "Presence", "Our journey"][i]}
-            </span>
-            <strong>{v}</strong>
-            <h3>{t}</h3>
-            <p>{s}</p>
-          </div>
-        ))}
-      </section>
-      <section className="about-section section-wrap">
-        <div className="about-image">
-          <img
-            src="/ippan/hydropower.jpg"
-            alt="Hydropower station and forested river valley"
-          />
-          <div className="image-label">
-            <Leaf size={23} />
-            <span>
-              Natural potential.
-              <br />
-              <strong>Lasting prosperity.</strong>
-            </span>
-          </div>
-          <div className="about-image-small">
-            <img
-              src="/ippan/assembly.jpg"
-              alt="IPPAN energy community gathering"
-            />
-          </div>
-        </div>
-        <div className="about-copy">
-          <span className="eyebrow">A COLLECTIVE FORCE FOR CHANGE</span>
-          <h2>
-            Our rivers hold potential.
-            <br />
-            <em>Our people unlock it.</em>
-          </h2>
-          <p>
-            Since 2001, IPPAN has brought Nepal’s independent power producers
-            together with a simple belief: our energy future is stronger when we
-            build it together.
-          </p>
-          <p>
-            We connect the private sector, policymakers and partners to advance
-            responsible energy development and create lasting value for Nepal.
-          </p>
-          <div className="about-values">
-            <span>
-              <ShieldCheck size={20} />A trusted collective voice
-            </span>
-            <span>
-              <Leaf size={20} />
-              Sustainable progress
-            </span>
-          </div>
-          <Link className="button dark" href="/about">
-            Get to know IPPAN
-            <ArrowUpRight size={17} />
-          </Link>
-        </div>
-      </section>
-      <section className="services-section section-wrap">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">CONNECTED FOR A COMMON PURPOSE</span>
-            <h2>
-              More than an association.
-              <br />
-              <em>A platform for progress.</em>
-            </h2>
-          </div>
-          <p>
-            The knowledge, connections and representation
-            <br />
-            to move Nepal’s energy community forward.
-          </p>
-        </div>
-        <div className="service-grid">
-          {[
-            [
-              Users,
-              "A stronger network",
-              "Connect with independent producers and energy-sector partners.",
-              "/members",
-            ],
-            [
-              ShieldCheck,
-              "A shared voice",
-              "Shaping dialogue and championing a supportive energy landscape.",
-              "/about",
-            ],
-            [
-              BookOpen,
-              "Knowledge that powers",
-              "Discover publications, policy references and sector insights.",
-              "/resources",
-            ],
-            [
-              Zap,
-              "Energy in perspective",
-              "Explore the projects shaping the hydropower landscape.",
-              "/hydropower",
-            ],
-          ].map(([Icon, t, s, url]) => {
-            const I = Icon as typeof Users;
-            return (
-              <Link className="service-card" href={String(url)} key={String(t)}>
-                <I size={29} />
-                <h3>{String(t)}</h3>
-                <p>{String(s)}</p>
-                <span className="service-link">
-                  Explore
-                  <ArrowUpRight size={17} />
-                </span>
-              </Link>
-            );
-          })}
-        </div>
-      </section>
-      <section className="energy-strip">
-        <div>
-          <span className="eyebrow">THE POTENTIAL IS EXTRAORDINARY</span>
-          <h2>
-            Clean energy.
-            <br />
-            Shared prosperity.
-          </h2>
-          <p>
-            Explore the projects and people building
-            <br />
-            Nepal’s renewable energy future.
-          </p>
-          <Link className="button lime" href="/hydropower">
-            Explore hydropower database
-            <Zap size={17} />
-          </Link>
-        </div>
-        <div className="energy-strip-metric">
-          <strong>
-            {capacity}
-            <small>MW</small>
-          </strong>
-          <span>Sample project capacity</span>
-          <div className="tiny-line" />
-          <p>
-            {data.projects.length} projects. Seven provinces.
-            <br />
-            Endless possibilities.
-          </p>
-        </div>
-      </section>
-      <section className="section-wrap news-section">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">FROM THE ENERGY COMMUNITY</span>
-            <h2>
-              Ideas. Insights. <em>Impact.</em>
-            </h2>
-          </div>
-          <Link className="text-link" href="/news">
-            All news & insights
-            <ArrowUpRight size={18} />
-          </Link>
-        </div>
-        <div className="news-grid">
-          {data.news
-            .filter((n) => n.status === "Published")
-            .slice(0, 3)
-            .map((n) => (
-              <ContentCard key={n.id} item={n} kind="news" />
-            ))}
-        </div>
-      </section>
-      <section className="events-section section-wrap">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">MEET. CONNECT. MOVE FORWARD.</span>
-            <h2>
-              Good energy starts
-              <br />
-              <em>with a conversation.</em>
-            </h2>
-          </div>
-          <Link className="text-link" href="/events">
-            Explore events
-            <ArrowUpRight size={18} />
-          </Link>
-        </div>
-        <div className="event-preview">
-          <img
-            src="/ippan/expo.jpg"
-            alt="Energy sector expo opening ceremony"
-          />
-          <div>
-            {data.events
-              .filter((e) => e.status === "Published")
-              .slice(0, 3)
-              .map((e) => (
-                <Link className="event-row" href={"/events/" + e.id} key={e.id}>
-                  <div className="event-date">
-                    <strong>{new Date(e.date).getDate()}</strong>
-                    <span>
-                      {new Date(e.date).toLocaleString("en", {
-                        month: "short",
-                      })}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="eyebrow">
-                      {e.price ? "FORUM" : "COMMUNITY EVENT"}
-                    </span>
-                    <h3>{e.title}</h3>
-                    <p>
-                      <MapPin size={13} />
-                      {e.location}
-                    </p>
-                  </div>
-                  <span className="round-icon">
-                    <ArrowUpRight size={19} />
-                  </span>
-                </Link>
-              ))}
-          </div>
-        </div>
-      </section>
-      <section className="section-wrap library-preview">
-        <div>
-          <span className="eyebrow">KNOWLEDGE FOR WHAT’S NEXT</span>
-          <h2>
-            A resource for
-            <br />
-            <em>every possibility.</em>
-          </h2>
-          <p>
-            Sector perspectives, institutional publications
-            <br />
-            and practical knowledge, in one place.
-          </p>
-          <Link href="/publications" className="button dark">
-            Explore the digital library
-            <BookOpen size={17} />
-          </Link>
-        </div>
-        <div className="publication-cover">
-          <img
-            src="/ippan/publication.jpg"
-            alt="Urja Samriddhi publication cover"
-          />
-          <span>PUBLICATIONS & DIGITAL LIBRARY</span>
-        </div>
-      </section>
-    </>
   );
 }
 export function ContentCard({ item, kind }: { item: Content; kind: string }) {
@@ -581,7 +299,15 @@ function ContentPage({
   const [query, setQuery] = useState("");
   const [category, setCategory] = useState("All categories");
   const [reading, setReading] = useState(false);
-  const records = data[kind].filter((c) => c.status === "Published");
+  const { choose: localize } = useLanguage();
+  const records = data[kind]
+    .filter((c) => c.status === "Published")
+    .map((item) => ({
+      ...item,
+      title: localize(item.title, item.titleNe || ""),
+      description: localize(item.description, item.descriptionNe || ""),
+      body: localize(item.body, item.bodyNe || ""),
+    }));
   const item = records.find((c) => c.id === path.split("/")[2]);
   if (item)
     return (
@@ -701,6 +427,7 @@ function Directory({ path }: { path: string }) {
   const [province, setProvince] = useState("All provinces");
   const [category, setCategory] = useState("All categories");
   const [min, setMin] = useState("");
+  const [projectStatus, setProjectStatus] = useState("");
   const m = data.members.find((m) => m.id === path.split("/")[2] && m.visible);
   if (m)
     return (
@@ -756,7 +483,11 @@ function Directory({ path }: { path: string }) {
       (m.name + " " + m.district).toLowerCase().includes(q.toLowerCase()) &&
       (province === "All provinces" || m.province === province) &&
       (category === "All categories" || m.category === category) &&
-      m.capacity >= Number(min || 0),
+      m.capacity >= Number(min || 0) &&
+      (!projectStatus ||
+        data.projects.some(
+          (p) => p.memberId === m.id && p.status === projectStatus,
+        )),
   );
   return (
     <>
@@ -786,9 +517,11 @@ function Directory({ path }: { path: string }) {
             value={category}
             onChange={(e) => setCategory(e.target.value)}
           >
-            {["All categories", "Corporate", "Associate"].map((p) => (
-              <option key={p}>{p}</option>
-            ))}
+            {["All categories", "Corporate", "Associate", "Individual"].map(
+              (p) => (
+                <option key={p}>{p}</option>
+              ),
+            )}
           </select>
           <input
             type="number"
@@ -797,6 +530,26 @@ function Directory({ path }: { path: string }) {
             value={min}
             onChange={(e) => setMin(e.target.value)}
           />
+        </div>
+        <div className="filter-bar">
+          <label className="field">
+            <span>Project status</span>
+            <select
+              aria-label="Member project status"
+              value={projectStatus}
+              onChange={(e) => setProjectStatus(e.target.value)}
+            >
+              <option value="">All project stages</option>
+              {[
+                "Operational",
+                "Under construction",
+                "Construction not started",
+                "Survey",
+              ].map((s) => (
+                <option key={s}>{s}</option>
+              ))}
+            </select>
+          </label>
         </div>
         <p className="results-label">
           {list.length} member companies · illustrative sample directory
@@ -812,6 +565,15 @@ function Directory({ path }: { path: string }) {
               <p>
                 <MapPin size={14} />
                 {m.district}, {m.province}
+              </p>
+              <p>
+                {Array.from(
+                  new Set(
+                    data.projects
+                      .filter((p) => p.memberId === m.id)
+                      .map((p) => p.status),
+                  ),
+                ).join(" · ") || "No linked projects"}
               </p>
               <div className="member-card-bottom">
                 <span>
@@ -834,9 +596,15 @@ function Events({ path }: { path: string }) {
     null,
   );
   const [filter, setFilter] = useState("Upcoming");
+  const [ticketCategory, setTicketCategory] = useState("");
   const item = data.events.find(
     (e) => e.id === path.split("/")[2] && e.status === "Published",
   );
+  const tickets = item?.ticketTypes || [
+    { name: "General", price: item?.price || 0, capacity: 10000 },
+  ];
+  const selectedTicket =
+    tickets.find((t) => t.name === ticketCategory) || tickets[0];
   if (item)
     return (
       <>
@@ -903,12 +671,29 @@ function Events({ path }: { path: string }) {
                   const r = await act("register", {
                     ...d,
                     eventId: item.id,
-                    simulate: item.price > 0,
+                    ticketType: selectedTicket.name,
+                    simulate: selectedTicket.price > 0,
                   });
                   setTicket(r);
                   notify("Event registration confirmed.");
                 }}
               >
+                <label className="field">
+                  <span>Ticket category</span>
+                  <select
+                    aria-label="Event ticket category"
+                    name="ticketType"
+                    value={selectedTicket.name}
+                    onChange={(e) => setTicketCategory(e.target.value)}
+                  >
+                    {tickets.map((t) => (
+                      <option key={t.name} value={t.name}>
+                        {t.name} ·{" "}
+                        {t.price ? money(t.price) + " (simulated)" : "Free"}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <Field
                   name="name"
                   label="Participant name"
@@ -920,10 +705,10 @@ function Events({ path }: { path: string }) {
                   type="email"
                   value={data.viewer?.email}
                 />
-                {item.price > 0 && (
+                {selectedTicket.price > 0 && (
                   <div className="callout">
-                    Demo ticket: {money(item.price)}. This confirms a simulated
-                    payment. No money will be charged.
+                    Demo ticket: {money(selectedTicket.price)}. This confirms a
+                    simulated payment. No money will be charged.
                   </div>
                 )}
               </Form>
@@ -1012,7 +797,11 @@ export function Hydropower({ path = "/hydropower" }: { path?: string }) {
                   "Capacity (MW)": item.capacity,
                   River: item.river,
                   Status: item.status,
-                  Licence: item.licence,
+                  "Generation licence": item.licence,
+                  "Survey licence": item.surveyLicence || "Not supplied",
+                  Contact:
+                    item.contact ||
+                    "Contact the developer through the member directory",
                   "Commercial operation": item.cod,
                   Coordinates: item.lat + ", " + item.lng,
                 }).map(([k, v]) => (
@@ -1037,151 +826,22 @@ export function Hydropower({ path = "/hydropower" }: { path?: string }) {
         </section>
       </>
     );
-  const records = data.projects.filter(
-    (p) =>
-      (p.name + " " + p.developer + " " + p.district)
-        .toLowerCase()
-        .includes(q.toLowerCase()) &&
-      (province === "All provinces" || p.province === province) &&
-      (status === "All statuses" || p.status === status),
-  );
   return (
     <>
       <PageIntro
-        eyebrow="NEPAL HYDROPOWER DATABASE"
-        title="See the energy. Explore the potential."
-        description="Explore sample hydropower projects by location, capacity and development stage. Data is illustrative and is not verified official IPPAN information."
+        eyebrow="HYDROPOWER DATABASE"
+        title="Explore Nepal’s energy potential."
+        description="Search the shared project register. Charts, map and reports update together. All project records are clearly labelled demonstration fixtures."
       />
       <section className="section-wrap">
-        <div className="database-metrics">
-          {[
-            ["Projects", records.length],
-            [
-              "Total capacity",
-              records.reduce((n, p) => n + p.capacity, 0) + " MW",
-            ],
-            [
-              "Operational",
-              records.filter((p) => p.status === "Operational").length,
-            ],
-            [
-              "Under construction",
-              records.filter((p) => p.status === "Under construction").length,
-            ],
-          ].map(([t, v]) => (
-            <div key={t}>
-              <span>{t}</span>
-              <strong>{v}</strong>
-            </div>
-          ))}
-        </div>
-        <ProvinceChart />
-        <div className="filter-bar">
-          <SearchBox
-            value={q}
-            set={setQ}
-            placeholder="Search projects, developers or districts…"
-          />
-          <select
-            aria-label="Project province"
-            value={province}
-            onChange={(e) => setProvince(e.target.value)}
-          >
-            {["All provinces", ...provinces].map((v) => (
-              <option key={v}>{v}</option>
-            ))}
-          </select>
-          <select
-            aria-label="Project status"
-            value={status}
-            onChange={(e) => setStatus(e.target.value)}
-          >
-            {[
-              "All statuses",
-              "Operational",
-              "Under construction",
-              "Survey",
-            ].map((v) => (
-              <option key={v}>{v}</option>
-            ))}
-          </select>
-          <Export rows={records} name="ippan-hydropower" />
-        </div>
-        <div className="tabs">
-          {["Table", "Map"].map((t) => (
-            <button
-              key={t}
-              className={view === t ? "active" : ""}
-              onClick={() => setView(t)}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
-        {view === "Map" ? (
-          <div className="project-map">
-            <div className="map-grid" />
-            <div className="nepal-shape" />
-            {records.map((p) => (
-              <Link
-                title={p.name + " · " + p.capacity + " MW"}
-                key={p.id}
-                style={{
-                  left: 8 + (p.lng - 80) * 11 + "%",
-                  top: 85 - (p.lat - 26) * 17 + "%",
-                }}
-                className="map-marker"
-                href={"/hydropower/" + p.id}
-              >
-                <MapPin size={25} />
-                <span>{p.name}</span>
-              </Link>
-            ))}
-            <p>
-              Interactive project markers · Schematic location view, not a
-              geographic basemap
-            </p>
-          </div>
-        ) : (
-          <Table
-            headers={[
-              "Project / developer",
-              "Province",
-              "River",
-              "Capacity",
-              "Status",
-              "",
-            ]}
-          >
-            {records.map((p) => (
-              <tr key={p.id}>
-                <td>
-                  <strong>{p.name}</strong>
-                  <small>{p.developer}</small>
-                </td>
-                <td>{p.province}</td>
-                <td>{p.river}</td>
-                <td>{p.capacity} MW</td>
-                <td>
-                  <Badge>{p.status}</Badge>
-                </td>
-                <td>
-                  <Link className="table-action" href={"/hydropower/" + p.id}>
-                    Details
-                    <ChevronRight size={15} />
-                  </Link>
-                </td>
-              </tr>
-            ))}
-          </Table>
-        )}
-        {!records.length && <Empty />}
+        <HydropowerDashboard />
       </section>
     </>
   );
 }
+
 function Membership() {
-  const { act } = usePlatform();
+  const { act, data } = usePlatform();
   const [result, setResult] = useState<{
     reference: string;
     tracking: string;
@@ -1212,10 +872,22 @@ function Membership() {
       <PageIntro
         eyebrow="BECOME PART OF SOMETHING GREATER"
         title="Your energy. Our collective strength."
-        description="Apply for corporate or associate membership and connect with Nepal’s independent energy community."
+        description="Corporate, associate and individual membership. Submit your information, attach the required PDF, and track review, corrections and approval online."
       />
       <section className="section-wrap application-layout">
         <aside>
+          <div className="category-requirements">
+            {data.categories
+              ?.filter((c) => c.enabled)
+              .map((c) => (
+                <div key={c.name}>
+                  <h3>{c.name} membership</h3>
+                  <p>{c.description}</p>
+                  <strong>{money(c.fee)} / year</strong>
+                  <small>Required: {c.documents}</small>
+                </div>
+              ))}
+          </div>
           <h2>
             A stronger future,
             <br />
@@ -1289,7 +961,15 @@ function Membership() {
               <Field
                 name="category"
                 label="Membership category"
-                options={["Corporate", "Associate"]}
+                options={
+                  data.categories
+                    ?.filter((c) => c.enabled)
+                    .map((c) => c.name) || [
+                    "Corporate",
+                    "Associate",
+                    "Individual",
+                  ]
+                }
               />
               <Field name="province" label="Province" options={provinces} />
               <Field name="district" label="District" />
@@ -1402,88 +1082,8 @@ function Track() {
     </>
   );
 }
-function About() {
-  return (
-    <>
-      <PageIntro
-        eyebrow="INDEPENDENT POWER. COLLECTIVE PROGRESS."
-        title="A shared vision for a brighter Nepal."
-        description="Established in 2001, IPPAN brings the independent power community together to advance Nepal’s energy potential."
-      />
-      <section className="about-section section-wrap">
-        <div className="about-image">
-          <img src="/ippan/assembly.jpg" alt="IPPAN community gathering" />
-        </div>
-        <div className="about-copy">
-          <span className="eyebrow">OUR PURPOSE</span>
-          <h2>
-            A collective voice.
-            <br />
-            <em>A lasting contribution.</em>
-          </h2>
-          <p>
-            We connect energy producers, policymakers and partners, creating a
-            platform for dialogue, knowledge exchange and sustainable
-            development.
-          </p>
-          <p>
-            Our vision is a prosperous and energy-secure Nepal, supported by a
-            thriving independent power sector.
-          </p>
-          <div className="about-values">
-            <span>
-              <Leaf />
-              Responsible development
-            </span>
-            <span>
-              <Users />
-              Meaningful collaboration
-            </span>
-          </div>
-        </div>
-      </section>
-      <section className="section-wrap">
-        <div className="section-heading">
-          <div>
-            <span className="eyebrow">
-              THE INSTITUTION BEHIND THE COMMUNITY
-            </span>
-            <h2>
-              People. Purpose. <em>Progress.</em>
-            </h2>
-          </div>
-        </div>
-        <div className="service-grid">
-          {[
-            [
-              "Our mission",
-              "Represent members, support informed policy dialogue and encourage responsible private investment in energy.",
-            ],
-            [
-              "Executive committee",
-              "Elected member representatives provide institutional leadership. Committee profiles await approved IPPAN content.",
-            ],
-            [
-              "Our secretariat",
-              "Membership, finance, events and communications teams coordinate the work of the association.",
-            ],
-            [
-              "Our objectives",
-              "Promote sector collaboration, strengthen knowledge exchange and advance a resilient energy future.",
-            ],
-          ].map(([t, s]) => (
-            <div className="service-card" key={t}>
-              <Building2 />
-              <h3>{t}</h3>
-              <p>{s}</p>
-            </div>
-          ))}
-        </div>
-      </section>
-    </>
-  );
-}
 function Contact() {
+  const { data } = usePlatform();
   return (
     <>
       <PageIntro
@@ -1507,6 +1107,9 @@ function Contact() {
           <a href="mailto:info@ippan.org.np">info@ippan.org.np</a>
           <p>Open your email application to send an inquiry.</p>
         </Panel>
+      </section>
+      <section className="section-wrap">
+        <ContactForm />
       </section>
     </>
   );

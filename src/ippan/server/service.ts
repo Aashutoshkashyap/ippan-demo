@@ -1,3 +1,5 @@
+import { upgradeState } from "../extensions-model";
+import { extensionAction } from "./extensions";
 import {
   createHash,
   randomBytes,
@@ -55,11 +57,18 @@ const projectSchema = z.object({
   municipality: text,
   capacity: z.coerce.number().positive().max(10000),
   river: text,
-  status: z.enum(["Operational", "Under construction", "Survey"]),
+  status: z.enum([
+    "Operational",
+    "Under construction",
+    "Construction not started",
+    "Survey",
+  ]),
   lat: z.coerce.number().min(26).max(31),
   lng: z.coerce.number().min(80).max(89),
   licence: text,
   cod: text,
+  surveyLicence: z.string().max(250).optional(),
+  contact: z.string().max(250).optional(),
 });
 export function viewer(s: State, token?: string): Viewer | null {
   if (!token) return null;
@@ -122,6 +131,7 @@ export function signIn(s: State, input: unknown) {
   return { token, user: viewer(s, token) };
 }
 export function snapshot(s: State, u: Viewer | null) {
+  upgradeState(s);
   const safeContent = (list: Content[]) =>
     list.map(({ pdf, ...content }) => ({ ...content, hasPdf: !!pdf }));
   const publicContent = (list: Content[]) =>
@@ -141,6 +151,25 @@ export function snapshot(s: State, u: Viewer | null) {
   const member = u?.memberId;
   return {
     ...s,
+    sitePages: s.sitePages!.filter(
+      (p) => p.status === "Published" || (admin && can(u.role, "website")),
+    ),
+    profiles: s.profiles!.filter(
+      (p) => p.status === "Published" || (admin && can(u.role, "website")),
+    ),
+    media: s.media!.filter(
+      (p) => p.status === "Published" || (admin && can(u.role, "website")),
+    ),
+    meetings:
+      admin && can(u.role, "meetings")
+        ? s.meetings!.map((m) => ({
+            ...m,
+            attachments: m.attachments.map((a) => ({ name: a.name, data: "" })),
+          }))
+        : [],
+    subscriptions:
+      admin && can(u.role, "communications") ? s.subscriptions : [],
+    inquiries: admin && can(u.role, "communications") ? s.inquiries : [],
     users:
       admin && can(u.role, "users")
         ? s.users.map(({ passwordHash, ...user }) => user)
@@ -190,7 +219,16 @@ export function snapshot(s: State, u: Viewer | null) {
       admin && can(u.role, "events")
         ? s.registrations
         : s.registrations.filter((r) => member && r.memberId === member),
-    correspondence: admin && can(u.role, "secretariat") ? s.correspondence : [],
+    correspondence:
+      admin && can(u.role, "secretariat")
+        ? s.correspondence.map((c) => ({
+            ...c,
+            attachments: c.attachments?.map((a) => ({
+              name: a.name,
+              data: "",
+            })),
+          }))
+        : [],
     tasks: admin && can(u.role, "secretariat") ? s.tasks : [],
     proxies:
       admin && can(u.role, "agm")
@@ -222,7 +260,7 @@ export function snapshot(s: State, u: Viewer | null) {
 const appSchema = z.object({
   name: text,
   email: z.string().email().max(250),
-  category: z.enum(["Corporate", "Associate"]),
+  category: z.enum(["Corporate", "Associate", "Individual"]),
   province: z.enum(provinces as [string, ...string[]]),
   district: text,
   capacity: z.coerce.number().min(0).max(10000),
@@ -248,10 +286,20 @@ export function applyAction(
       data: z.record(z.string(), z.unknown()).default({}),
     })
     .parse(input);
+  upgradeState(s);
   const d = envelope.data;
+  const extension = extensionAction(s, u, envelope.action, d);
+  if (extension.handled) return extension.result;
   switch (envelope.action) {
     case "apply": {
       const a = appSchema.parse(d);
+      const category = s.categories!.find(
+        (c) => c.name === a.category && c.enabled,
+      );
+      if (!category)
+        throw new HttpError(
+          "This membership category is not accepting applications.",
+        );
       if (
         s.users.some((x) => x.email === a.email) ||
         s.applications.some(
@@ -390,7 +438,8 @@ export function applyAction(
           id: id("PAY"),
           memberId,
           purpose: "Initial membership fee",
-          amount: a.category === "Corporate" ? 25000 : 10000,
+          amount:
+            s.categories!.find((c) => c.name === a.category)?.fee ?? 10000,
           status: "Pending",
           date: today(),
           reconciled: false,
@@ -421,7 +470,8 @@ export function applyAction(
           memberId: m.id,
           purpose: "Annual membership renewal",
           renewal: true,
-          amount: m.category === "Corporate" ? 25000 : 10000,
+          amount:
+            s.categories!.find((c) => c.name === m.category)?.fee ?? 10000,
           status: "Pending",
           date: today(),
           reconciled: false,
@@ -564,6 +614,11 @@ export function applyAction(
           featured: z.boolean(),
           status: z.enum(["Draft", "In review", "Published", "Archived"]),
           pdf: pdfSchema.optional(),
+          titleNe: z.string().max(250).optional(),
+          descriptionNe: z.string().max(20000).optional(),
+          bodyNe: z.string().max(20000).optional(),
+          seoTitle: z.string().max(250).optional(),
+          seoDescription: z.string().max(300).optional(),
         })
         .parse(d);
       if (c.status === "Published" && u?.role === "Content Editor")
@@ -592,10 +647,24 @@ export function applyAction(
     }
     case "save-settings": {
       requireArea(u, "content");
+      if (u?.role === "Content Editor")
+        throw new HttpError(
+          "A secretariat administrator must approve homepage changes.",
+          403,
+        );
       const v = z
         .object({
           heroTitle: z.string().min(1).max(100),
-          heroSubtitle: z.string().min(1).max(300),
+          heroSubtitle: z.string().min(1).max(500),
+          heroTitleNe: z.string().max(250).optional(),
+          heroSubtitleNe: z.string().max(500).optional(),
+          heroImage: z
+            .enum([
+              "/ippan/hydropower.jpg",
+              "/ippan/assembly.jpg",
+              "/ippan/expo.jpg",
+            ])
+            .optional(),
         })
         .parse(d);
       Object.assign(s.settings, v);
@@ -612,9 +681,25 @@ export function applyAction(
           location: text,
           description: bodyText,
           price: z.coerce.number().min(0).max(100000),
+          ticketTypes: z
+            .array(
+              z.object({
+                name: text,
+                price: z.coerce.number().min(0).max(100000),
+                capacity: z.coerce.number().int().min(1).max(10000),
+              }),
+            )
+            .min(1)
+            .max(10)
+            .optional(),
           status: z.enum(["Draft", "Published"]),
         })
         .parse(d);
+      if (
+        e.ticketTypes &&
+        new Set(e.ticketTypes.map((t) => t.name)).size !== e.ticketTypes.length
+      )
+        throw new HttpError("Ticket categories must have unique names.");
       if (Number.isNaN(Date.parse(e.date)))
         throw new HttpError("Enter a valid event date.");
       const old = s.events.find((x) => x.id === e.id);
@@ -622,6 +707,7 @@ export function applyAction(
         ...e,
         id: old?.id || id("EV"),
         image: old?.image || "/ippan/expo.jpg",
+        ticketTypes: e.ticketTypes || old?.ticketTypes,
       };
       if (old) Object.assign(old, ev);
       else s.events.unshift(ev);
@@ -635,6 +721,7 @@ export function applyAction(
           name: text,
           email: z.string().email(),
           simulate: z.boolean(),
+          ticketType: z.string().max(250).optional(),
         })
         .parse(d);
       const e = s.events.find(
@@ -643,7 +730,21 @@ export function applyAction(
       if (!e) throw new HttpError("Event is not available.", 404);
       if (new Date(e.date) < new Date())
         throw new HttpError("Registration for this event has closed.");
-      if (e.price > 0 && !r.simulate)
+      const ticketTypes = e.ticketTypes || [
+        { name: "General", price: e.price, capacity: 10000 },
+      ];
+      const ticket = ticketTypes.find(
+        (t) => t.name === (r.ticketType || ticketTypes[0].name),
+      );
+      if (!ticket) throw new HttpError("Choose an available ticket category.");
+      if (
+        s.registrations.filter(
+          (x) =>
+            x.eventId === e.id && (x.ticketType || "General") === ticket.name,
+        ).length >= ticket.capacity
+      )
+        throw new HttpError("This ticket category is full.");
+      if (ticket.price > 0 && !r.simulate)
         throw new HttpError("Confirm simulated payment to register.");
       if (
         s.registrations.some(
@@ -659,8 +760,9 @@ export function applyAction(
         memberId: u?.memberId,
         created: today(),
         attendance: false,
-        amount: e.price,
-        paymentStatus: e.price
+        amount: ticket.price,
+        ticketType: ticket.name,
+        paymentStatus: ticket.price
           ? ("Simulated successful" as const)
           : ("Free" as const),
       };
@@ -847,6 +949,9 @@ export function applyAction(
         .object({
           title: text,
           segment: text,
+          body: bodyText.optional(),
+          template: text.optional(),
+          plannedDate: z.string().max(30).optional(),
           status: z.enum(["Draft", "Simulated"]),
         })
         .parse(d);

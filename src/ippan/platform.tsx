@@ -6,6 +6,7 @@ import { Snapshot } from "./model";
 import { Context, Brand, Form, Field } from "./ui";
 import PublicSite from "./public-site";
 import Admin from "./workspace";
+import { LanguageProvider } from "./i18n";
 export default function Platform({
   path,
   initialData,
@@ -68,78 +69,82 @@ export default function Platform({
       </main>
     );
   return (
-    <Context.Provider value={{ data, refresh, act, notify: setNotice }}>
-      {path === "/login" ? (
-        <div className="login-page">
-          <div className="login-story">
-            <Brand light />
-            <div>
-              <span className="eyebrow">OUR ENERGY. OUR FUTURE.</span>
-              <h1>
-                A connected community.
-                <br />A stronger Nepal.
-              </h1>
-              <p>Your gateway to membership, knowledge and opportunity.</p>
+    <LanguageProvider>
+      <Context.Provider value={{ data, refresh, act, notify: setNotice }}>
+        {path === "/login" ? (
+          <div className="login-page">
+            <div className="login-story">
+              <Brand light />
+              <div>
+                <span className="eyebrow">OUR ENERGY. OUR FUTURE.</span>
+                <h1>
+                  A connected community.
+                  <br />A stronger Nepal.
+                </h1>
+                <p>Your gateway to membership, knowledge and opportunity.</p>
+              </div>
+              <small>IPPAN Integrated Digital Platform · Demo</small>
             </div>
-            <small>IPPAN Integrated Digital Platform · Demo</small>
-          </div>
-          <div className="login-form">
-            <a className="text-link" href="/">
-              Back to the website
-            </a>
-            <span className="eyebrow">WELCOME TO IPPAN</span>
-            <h1>Good to see you again.</h1>
-            <p>Sign in to your member or secretariat workspace.</p>
-            <Form
-              label="Sign in securely"
-              onSubmit={async (d) => {
-                const r = await fetch("/api/ippan/auth", {
-                  method: "POST",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify(d),
-                });
-                const result = await r.json();
-                if (!r.ok) throw new Error(result.error);
-                await refresh();
-                router.push(
-                  result.user.role === "Member" ? "/portal" : "/admin",
-                );
-              }}
-            >
-              <Field name="email" label="Email address" type="email" />
-              <Field name="password" label="Password" type="password" />
-            </Form>
-            <div className="callout">
-              <strong>Evaluation accounts</strong>
-              <p>
-                Admin: admin@ippan.demo
-                <br />
-                Member: member@ippan.demo
+            <div className="login-form">
+              <a className="text-link" href="/">
+                Back to the website
+              </a>
+              <span className="eyebrow">WELCOME TO IPPAN</span>
+              <h1>Good to see you again.</h1>
+              <p>Sign in to your member or secretariat workspace.</p>
+              <Form
+                label="Sign in securely"
+                onSubmit={async (d) => {
+                  const r = await fetch("/api/ippan/auth", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(d),
+                  });
+                  const result = await r.json();
+                  if (!r.ok) throw new Error(result.error);
+                  await refresh();
+                  router.push(
+                    result.user.role === "Member" ? "/portal" : "/admin",
+                  );
+                }}
+              >
+                <Field name="email" label="Email address" type="email" />
+                <Field name="password" label="Password" type="password" />
+              </Form>
+              <div className="callout">
+                <strong>Evaluation accounts</strong>
+                <p>
+                  Admin: admin@ippan.demo
+                  <br />
+                  Member: member@ippan.demo
+                </p>
+                <p>
+                  Use the demo password stored in this project’s .env.local.
+                </p>
+              </div>
+              <p className="muted">
+                Not a member yet? <a href="/membership">Apply for membership</a>
               </p>
-              <p>Use the demo password stored in this project’s .env.local.</p>
             </div>
-            <p className="muted">
-              Not a member yet? <a href="/membership">Apply for membership</a>
-            </p>
           </div>
-        </div>
-      ) : path.startsWith("/admin") || path.startsWith("/portal") ? (
-        <Admin path={path} />
-      ) : (
-        <PublicSite path={path} />
-      )}{" "}
-      {notice && (
-        <div className="toast" role="status">
-          <CheckCircle2 size={21} />
-          <span>{notice}</span>
-          <button
-            aria-label="Dismiss notification"
-            onClick={() => setNotice("")}
-          >
-            <X size={17} />
-          </button>
-        </div>
-      )}
-    </Context.Provider>
+        ) : path.startsWith("/admin") || path.startsWith("/portal") ? (
+          <Admin path={path} />
+        ) : (
+          <PublicSite key={path} path={path} />
+        )}{" "}
+        {notice && (
+          <div className="toast" role="status">
+            <CheckCircle2 size={21} />
+            <span>{notice}</span>
+            <button
+              aria-label="Dismiss notification"
+              onClick={() => setNotice("")}
+            >
+              <X size={17} />
+            </button>
+          </div>
+        )}
+      </Context.Provider>
+    </LanguageProvider>
   );
 }

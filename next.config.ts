@@ -2,6 +2,9 @@ import type { NextConfig } from "next";
 const nextConfig: NextConfig = {
   poweredByHeader: false,
   output: "standalone",
+  outputFileTracingIncludes: {
+    "/api/ippan/documents/*": ["./public/ippan/noto-devanagari.ttf"],
+  },
   devIndicators: false,
   experimental: { optimizePackageImports: ["lucide-react", "recharts"] },
   async headers() {

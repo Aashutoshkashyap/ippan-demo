@@ -1,3 +1,4 @@
+import { documentFonts } from "@/ippan/server/pdf-fonts";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import QRCode from "qrcode";
 import { readState } from "@/ippan/server/store";
@@ -16,6 +17,21 @@ export async function GET(
     const result = (() => {
       const u = viewer(s, session);
       const admin = !!u && u.role !== "Member";
+      if (url.searchParams.has("meeting") || url.searchParams.has("letter")) {
+        const meeting = url.searchParams.has("meeting");
+        if (!u || !allowed(u.role, meeting ? "meetings" : "secretariat"))
+          throw new HttpError("Secretariat access is required.", 403);
+        const index = Number(
+          url.searchParams.get(meeting ? "meeting" : "letter"),
+        );
+        const record = meeting
+          ? s.meetings?.find((m) => m.id === id)
+          : s.correspondence.find((c) => c.id === id);
+        const doc = record?.attachments?.[index];
+        if (!Number.isInteger(index) || !doc)
+          throw new HttpError("Document not found.", 404);
+        return { bytes: Buffer.from(doc.data, "base64"), title: doc.name };
+      }
       const pub = [...s.publications, ...s.resources].find(
         (x) => x.id === id && x.status === "Published",
       );
@@ -38,11 +54,17 @@ export async function GET(
             title: pub.pdf.name,
           };
         return {
-          title: pub.title,
+          title:
+            url.searchParams.get("lang") === "ne"
+              ? pub.titleNe || pub.title
+              : pub.title,
           lines: [
             pub.category,
             "Sample publication - demonstration edition",
-            ...pub.body.split("\n"),
+            ...(url.searchParams.get("lang") === "ne"
+              ? pub.bodyNe || pub.body
+              : pub.body
+            ).split("\n"),
           ],
           qr: undefined,
         };
@@ -138,8 +160,14 @@ export async function GET(
         },
       });
     const pdf = await PDFDocument.create();
-    const font = await pdf.embedFont(StandardFonts.Helvetica);
-    const bold = await pdf.embedFont(StandardFonts.HelveticaBold);
+    const {
+      font,
+      bold,
+      clean: ascii,
+    } = await documentFonts(
+      pdf,
+      result.title + (("lines" in result ? result.lines : []) || []).join(" "),
+    );
     let page = pdf.addPage([595, 842]);
     page.drawRectangle({
       x: 0,
@@ -155,7 +183,6 @@ export async function GET(
       font: bold,
       color: rgb(1, 1, 1),
     });
-    const ascii = (s: string) => s.replace(/[^\x20-\x7E]/g, " ");
     page.drawText(ascii(result.title), {
       x: 45,
       y: 700,

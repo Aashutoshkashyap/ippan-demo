@@ -41,6 +41,13 @@ import {
 } from "./ui";
 import { Content, provinces, roles, nav } from "./model";
 import { GrowthChart, RevenueChart, ProvinceChart } from "./charts";
+import { parseCsv, projectImportRows } from "./import-data";
+import {
+  MembershipTools,
+  StaffAccountForm,
+  RolePermissions,
+  CommunicationsInbox,
+} from "./institutional-admin";
 export default function AdminModules({ area }: { area: string }) {
   const { data, act, notify } = usePlatform();
   const [query, setQuery] = useState("");
@@ -49,7 +56,7 @@ export default function AdminModules({ area }: { area: string }) {
   const [modal, setModal] = useState("");
   const [record, setRecord] = useState<any>(null);
   const [kind, setKind] = useState<"news" | "publications" | "resources">(
-    area === "resources" ? "publications" : "news",
+    area === "resources" ? "resources" : "news",
   );
   const title = nav.find((n) => n[0] === area)?.[1] || "Workspace";
   const search = (s: string) => s.toLowerCase().includes(query.toLowerCase());
@@ -183,6 +190,14 @@ export default function AdminModules({ area }: { area: string }) {
           )}
         </div>
       </div>
+      {area === "communications" && <CommunicationsInbox />}
+      {area === "users" && (
+        <>
+          <StaffAccountForm />
+          <RolePermissions />
+        </>
+      )}
+      {area === "members" && <MembershipTools />}
       {area === "members" && (
         <>
           <div className="mini-metrics">
@@ -485,8 +500,8 @@ export default function AdminModules({ area }: { area: string }) {
         <>
           <div className="tabs">
             {(area === "resources"
-              ? ["publications", "resources"]
-              : ["news", "homepage"]
+              ? ["resources"]
+              : ["news", "publications", "homepage"]
             ).map((t) => (
               <button
                 className={(tab || kind) === t ? "active" : ""}
@@ -1098,6 +1113,15 @@ export default function AdminModules({ area }: { area: string }) {
                 <tr key={m.id}>
                   <td>
                     <strong>{m.title}</strong>
+                    <small>{m.template}</small>
+                    <p>{m.body}</p>
+                    <small>
+                      {m.plannedDate
+                        ? "Planned: " +
+                          m.plannedDate +
+                          " · manual delivery required"
+                        : ""}
+                    </small>
                   </td>
                   <td>{m.segment}</td>
                   <td>{date(m.date)}</td>
@@ -1290,6 +1314,38 @@ export default function AdminModules({ area }: { area: string }) {
               }}
             >
               <Field name="title" label="Title" value={record?.title} />
+              <Field
+                name="titleNe"
+                label="Title — नेपाली"
+                value={record?.titleNe}
+                required={false}
+              />
+              <Field
+                name="descriptionNe"
+                label="Short description — नेपाली"
+                type="textarea"
+                value={record?.descriptionNe}
+                required={false}
+              />
+              <Field
+                name="bodyNe"
+                label="Content — नेपाली"
+                type="textarea"
+                value={record?.bodyNe}
+                required={false}
+              />
+              <Field
+                name="seoTitle"
+                label="SEO title"
+                value={record?.seoTitle}
+                required={false}
+              />
+              <Field
+                name="seoDescription"
+                label="SEO description"
+                value={record?.seoDescription}
+                required={false}
+              />
               <div className="form-grid">
                 <Field
                   name="category"
@@ -1355,10 +1411,43 @@ export default function AdminModules({ area }: { area: string }) {
             <Form
               label="Save event"
               onSubmit={(d) =>
-                save("save-event", { ...d, id: record?.id }, "Event saved.")
+                save(
+                  "save-event",
+                  {
+                    ...d,
+                    id: record?.id,
+                    ...(d.ticketTypes?.trim()
+                      ? {
+                          ticketTypes: d.ticketTypes
+                            .split("\n")
+                            .filter(Boolean)
+                            .map((line) => {
+                              const [name, price, capacity] = line
+                                .split("|")
+                                .map((s) => s.trim());
+                              return {
+                                name,
+                                price: Number(price),
+                                capacity: Number(capacity),
+                              };
+                            }),
+                        }
+                      : {}),
+                  },
+                  "Event saved.",
+                )
               }
             >
               <Field name="title" label="Event title" value={record?.title} />
+              <Field
+                name="ticketTypes"
+                label="Ticket categories — one per line: Name | NPR price | capacity"
+                type="textarea"
+                value={record?.ticketTypes
+                  ?.map((t: any) => `${t.name} | ${t.price} | ${t.capacity}`)
+                  .join("\n")}
+                required={false}
+              />
               <div className="form-grid">
                 <Field
                   name="date"
@@ -1459,13 +1548,30 @@ export default function AdminModules({ area }: { area: string }) {
                 <Field
                   name="status"
                   label="Project status"
-                  options={["Operational", "Under construction", "Survey"]}
+                  options={[
+                    "Operational",
+                    "Under construction",
+                    "Construction not started",
+                    "Survey",
+                  ]}
                   value={record?.status}
                 />
                 <Field
                   name="licence"
-                  label="Licence reference"
+                  label="Generation licence reference"
                   value={record?.licence}
+                />
+                <Field
+                  name="surveyLicence"
+                  label="Survey licence reference"
+                  value={record?.surveyLicence}
+                  required={false}
+                />
+                <Field
+                  name="contact"
+                  label="Developer public contact"
+                  value={record?.contact}
+                  required={false}
                 />
                 <Field
                   name="cod"
@@ -1527,6 +1633,23 @@ export default function AdminModules({ area }: { area: string }) {
                 )
               }
             >
+              <Field
+                name="template"
+                label="Template"
+                options={[
+                  "General update",
+                  "Renewal reminder",
+                  "Event invitation",
+                  "Policy notice",
+                ]}
+              />
+              <Field name="body" label="Message body" type="textarea" />
+              <Field
+                name="plannedDate"
+                label="Planned date (manual scheduling only)"
+                type="datetime-local"
+                required={false}
+              />
               <Field name="title" label="Message / subject" type="textarea" />
               <Field
                 name="segment"
@@ -1657,59 +1780,36 @@ export default function AdminModules({ area }: { area: string }) {
                 name,developer,memberId,province,district,municipality,capacity,river,status,lat,lng,licence,cod
               </code>
               <p>
-                Spreadsheet (.xlsx) import is pending; export an unquoted CSV
-                with simple values for this demo importer.
+                Upload CSV or Excel (.xlsx). Quoted CSV values are supported.
+                The entire batch is validated before any records are saved.
+                Existing project records are not overwritten.
               </p>
               <Form
-                label="Validate & import CSV"
+                label="Validate & import projects"
                 onSubmit={async (_, form) => {
                   const f = (
                     form.elements.namedItem("file") as HTMLInputElement
                   ).files?.[0];
-                  if (!f) throw new Error("Select a CSV file.");
-                  const lines = (await f.text()).trim().split(/\r?\n/);
-                  if (lines.length > 101)
-                    throw new Error("Maximum 100 records per import.");
-                  const keys = lines[0].split(",").map((k) => k.trim());
-                  if (
-                    ![
-                      "name",
-                      "developer",
-                      "memberId",
-                      "province",
-                      "district",
-                      "municipality",
-                      "capacity",
-                      "river",
-                      "status",
-                      "lat",
-                      "lng",
-                      "licence",
-                      "cod",
-                    ].every((k) => keys.includes(k))
-                  )
-                    throw new Error("Required columns are missing.");
-                  if (lines.some((l) => l.includes('"')))
-                    throw new Error(
-                      "Quoted CSV values are not supported by this demo importer.",
-                    );
-                  const projects = lines.slice(1).map((line) => {
-                    const values = line.split(",");
-                    return Object.fromEntries(
-                      keys.map((k, i) => [k, values[i]?.trim()]),
-                    );
-                  });
+                  if (!f) throw new Error("Select a CSV or Excel file.");
+                  if (f.size > 512000)
+                    throw new Error("Import files must be at most 500 KB.");
+                  const rows = f.name.toLowerCase().endsWith(".xlsx")
+                    ? await (
+                        await import("read-excel-file/universal")
+                      ).readSheet(await f.arrayBuffer())
+                    : parseCsv(await f.text());
+                  const projects = projectImportRows(rows);
                   await act("import-projects", { projects });
                   setModal("");
-                  notify("CSV records imported.");
+                  notify("Validated project records imported.");
                 }}
               >
                 <label className="field">
-                  <span>Project CSV</span>
+                  <span>Project CSV / Excel (.xlsx)</span>
                   <input
                     name="file"
                     type="file"
-                    accept=".csv,text/csv"
+                    accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                     required
                   />
                 </label>

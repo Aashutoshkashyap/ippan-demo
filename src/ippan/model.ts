@@ -13,12 +13,13 @@ export type User = {
   role: Role;
   memberId?: string;
   passwordHash: string;
+  preferences?: { email: boolean; sms: boolean };
 };
 export type Viewer = Omit<User, "passwordHash">;
 export type Member = {
   id: string;
   name: string;
-  category: "Corporate" | "Associate";
+  category: "Corporate" | "Associate" | "Individual";
   province: string;
   district: string;
   status: "Active" | "Expired";
@@ -34,7 +35,7 @@ export type Application = {
   id: string;
   name: string;
   email: string;
-  category: "Corporate" | "Associate";
+  category: "Corporate" | "Associate" | "Individual";
   province: string;
   district: string;
   capacity: number;
@@ -55,11 +56,17 @@ export type Project = {
   municipality: string;
   capacity: number;
   river: string;
-  status: "Operational" | "Under construction" | "Survey";
+  status:
+    | "Operational"
+    | "Under construction"
+    | "Construction not started"
+    | "Survey";
   lat: number;
   lng: number;
   licence: string;
   cod: string;
+  surveyLicence?: string;
+  contact?: string;
 };
 export type Content = {
   id: string;
@@ -74,6 +81,11 @@ export type Content = {
   access: "Public" | "Members";
   source?: string;
   pdf?: { name: string; data: string };
+  titleNe?: string;
+  descriptionNe?: string;
+  bodyNe?: string;
+  seoTitle?: string;
+  seoDescription?: string;
 };
 export type Event = {
   id: string;
@@ -84,6 +96,7 @@ export type Event = {
   price: number;
   status: "Draft" | "Published";
   image: string;
+  ticketTypes?: { name: string; price: number; capacity: number }[];
 };
 export type Registration = {
   id: string;
@@ -94,6 +107,7 @@ export type Registration = {
   created: string;
   attendance: boolean;
   amount: number;
+  ticketType?: string;
   paymentStatus: "Free" | "Simulated successful";
 };
 export type Payment = {
@@ -118,6 +132,11 @@ export type Correspondence = {
   assignee: string;
   date: string;
   status: "Open" | "In progress" | "Completed";
+  department?: string;
+  received?: string;
+  approval?: "Pending" | "Approved";
+  dispatchReference?: string;
+  attachments?: { name: string; data: string }[];
 };
 export type Task = {
   id: string;
@@ -180,6 +199,9 @@ export type State = {
     title: string;
     segment: string;
     status: "Draft" | "Simulated";
+    body?: string;
+    template?: string;
+    plannedDate?: string;
     date: string;
   }[];
   settings: {
@@ -187,7 +209,80 @@ export type State = {
     heroSubtitle: string;
     agmTitle: string;
     agmDate: string;
+    heroImage?: string;
+    heroTitleNe?: string;
+    heroSubtitleNe?: string;
+    contactAddress?: string;
+    contactEmail?: string;
+    contactPhone?: string;
+    agmAgenda?: string;
+    sections?: string[];
   };
+  sitePages?: SitePage[];
+  profiles?: Profile[];
+  media?: Media[];
+  categories?: MembershipCategory[];
+  meetings?: Meeting[];
+  subscriptions?: { email: string; date: string }[];
+  inquiries?: {
+    id: string;
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    date: string;
+    status: "Open" | "Completed";
+  }[];
+};
+export type SitePage = {
+  id: string;
+  slug: string;
+  title: string;
+  titleNe: string;
+  body: string;
+  bodyNe: string;
+  status: "Draft" | "In review" | "Published" | "Archived";
+  seoDescription: string;
+  menuLabel: string;
+  order: number;
+};
+export type Profile = {
+  id: string;
+  name: string;
+  position: string;
+  group: "Executive committee" | "Secretariat";
+  bio: string;
+  image: string;
+  order: number;
+  status: "Draft" | "Published";
+};
+export type Media = {
+  id: string;
+  title: string;
+  caption: string;
+  type: "Photo" | "Video";
+  url: string;
+  status: "Draft" | "Published";
+  date: string;
+};
+export type MembershipCategory = {
+  name: "Corporate" | "Associate" | "Individual";
+  fee: number;
+  description: string;
+  documents: string;
+  enabled: boolean;
+};
+export type Meeting = {
+  id: string;
+  title: string;
+  committee: string;
+  date: string;
+  location: string;
+  agenda: string;
+  minutes: string;
+  attendees: string[];
+  status: "Scheduled" | "Completed";
+  attachments: { name: string; data: string }[];
 };
 export type Snapshot = Omit<State, "users" | "sessions" | "applications"> & {
   applications: Omit<Application, "trackingHash" | "documents">[];
@@ -215,22 +310,34 @@ export const roles: Role[] = [
 ];
 export const nav = [
   ["overview", "Overview", "LayoutDashboard"],
-  ["members", "Members & applications", "Users"],
+  ["website", "Website CMS", "PanelsTopLeft"],
+  ["members", "Membership", "Users"],
+  ["categories", "Categories & fees", "Tags"],
+  ["renewals", "Renewals & expiry", "CalendarClock"],
   ["finance", "Payments & finance", "Wallet"],
-  ["content", "Website & content", "PanelsTopLeft"],
-  ["events", "Events & registrations", "CalendarDays"],
   ["projects", "Hydropower database", "Zap"],
-  ["resources", "Publications & resources", "BookOpen"],
+  ["events", "Events & registrations", "CalendarDays"],
   ["agm", "AGM & digital voting", "Vote"],
+  ["resources", "Energy resource centre", "BookOpen"],
+  ["content", "News & publications", "Newspaper"],
   ["secretariat", "Digital secretariat", "Files"],
+  ["meetings", "Meetings & decisions", "ClipboardList"],
   ["communications", "Communications", "MessagesSquare"],
   ["reports", "Reports & analytics", "ChartNoAxesCombined"],
   ["users", "Users & access", "ShieldCheck"],
+  ["audit", "Audit logs", "History"],
+  ["settings", "System settings", "Settings"],
 ] as const;
 export function can(role: Role, area: string) {
   if (role === "Super Administrator") return true;
   const map: Record<string, string[]> = {
     overview: roles.filter((r) => r !== "Member"),
+    website: ["Content Editor", "Secretariat Administrator"],
+    categories: ["Membership Officer", "Secretariat Administrator"],
+    renewals: ["Membership Officer", "Secretariat Administrator"],
+    meetings: ["Secretariat Administrator"],
+    audit: ["Secretariat Administrator"],
+    settings: [],
     members: ["Membership Officer", "Secretariat Administrator"],
     finance: ["Finance Officer", "Secretariat Administrator"],
     content: ["Content Editor", "Secretariat Administrator"],

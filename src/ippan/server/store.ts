@@ -1,3 +1,4 @@
+import { upgradeState } from "../extensions-model";
 import { Pool } from "pg";
 import { mkdir, readFile, writeFile, rename } from "node:fs/promises";
 import path from "node:path";
@@ -39,7 +40,7 @@ export async function readState(): Promise<State> {
     const result = await getIppanPool().query<{ data: State }>(
       "SELECT data FROM ippan_demo.platform_state WHERE id=1",
     );
-    if (result.rows[0]) return result.rows[0].data;
+    if (result.rows[0]) return upgradeState(result.rows[0].data);
   }
   return transaction((s) => structuredClone(s));
 }
@@ -66,6 +67,7 @@ export async function transaction<T>(
             "SELECT data FROM ippan_demo.platform_state WHERE id=1 FOR UPDATE",
           )
         ).rows[0].data;
+      upgradeState(data);
       const value = await fn(data);
       await client.query(
         "UPDATE ippan_demo.platform_state SET data=$1, updated_at=now() WHERE id=1",
@@ -97,6 +99,7 @@ export async function transaction<T>(
       if ((e as NodeJS.ErrnoException).code !== "ENOENT") throw e;
       data = seed();
     }
+    upgradeState(data);
     const value = await fn(data);
     await writeFile(path.join(dir, "state.tmp"), JSON.stringify(data), {
       mode: 0o600,

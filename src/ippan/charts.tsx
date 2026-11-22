@@ -17,6 +17,8 @@ import {
 } from "recharts";
 import { usePlatform, Panel } from "./ui";
 import { provinces } from "./model";
+import { monthlyRecords } from "./analytics-data";
+import { DataChart } from "./analytics";
 const colors = [
   "#11a28c",
   "#5f70dc",
@@ -34,116 +36,16 @@ const tip = {
 };
 export function GrowthChart() {
   const { data } = usePlatform();
-  const [metric, setMetric] = useState("Capacity");
-  const [period, setPeriod] = useState("6 months");
-  const count = period === "6 months" ? 6 : 12;
-  const values = Array.from({ length: count }, (_, i) => {
-    const month = (12 - count + i) % 12;
-    const until = String(month + 1).padStart(2, "0");
-    return {
-      name: [
-        "Jan",
-        "Feb",
-        "Mar",
-        "Apr",
-        "May",
-        "Jun",
-        "Jul",
-        "Aug",
-        "Sep",
-        "Oct",
-        "Nov",
-        "Dec",
-      ][month],
-      Members: data.members.filter((m) => m.joined <= `2026-${until}-31`)
-        .length,
-      Capacity: data.projects
-        .filter(
-          (p, j) => j < Math.ceil(((i + 1) * data.projects.length) / count),
-        )
-        .reduce((n, p) => n + p.capacity, 0),
-    };
-  });
   return (
-    <Panel
-      title="A growing energy community"
-      sub="Illustrative progression from current sample records"
-      action={
-        <select
-          aria-label="Chart period"
-          value={period}
-          onChange={(e) => setPeriod(e.target.value)}
-        >
-          <option>6 months</option>
-          <option>12 months</option>
-        </select>
-      }
-    >
-      <div className="chart-tabs">
-        {["Capacity", "Members"].map((x) => (
-          <button
-            key={x}
-            className={metric === x ? "selected" : ""}
-            onClick={() => setMetric(x)}
-          >
-            <span
-              style={{ background: x === "Capacity" ? colors[0] : colors[1] }}
-            />
-            {x}
-            {x === "Capacity" ? " (MW)" : ""}
-          </button>
-        ))}
-      </div>
-      <div className="chart-area">
-        <ResponsiveContainer width="100%" height="100%">
-          <AreaChart
-            data={values}
-            margin={{ top: 15, right: 15, left: -20, bottom: 0 }}
-          >
-            <defs>
-              <linearGradient id="fillGrowth" x1="0" y1="0" x2="0" y2="1">
-                <stop
-                  offset="0%"
-                  stopColor={metric === "Capacity" ? colors[0] : colors[1]}
-                  stopOpacity={0.22}
-                />
-                <stop offset="100%" stopColor={colors[0]} stopOpacity={0} />
-              </linearGradient>
-            </defs>
-            <CartesianGrid
-              vertical={false}
-              stroke="#edf0f3"
-              strokeDasharray="3 3"
-            />
-            <XAxis
-              dataKey="name"
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#8b96a6" }}
-              dy={10}
-            />
-            <YAxis
-              axisLine={false}
-              tickLine={false}
-              tick={{ fontSize: 12, fill: "#8b96a6" }}
-            />
-            <Tooltip contentStyle={tip} />
-            <Area
-              name={metric}
-              dataKey={metric}
-              type="monotone"
-              stroke={metric === "Capacity" ? colors[0] : colors[1]}
-              strokeWidth={2.5}
-              fill="url(#fillGrowth)"
-              activeDot={{ r: 5 }}
-            />
-          </AreaChart>
-        </ResponsiveContainer>
-      </div>
-      <div className="chart-note">
-        <span>↗</span> Sample project capacity represented by the member network
-      </div>
-    </Panel>
+    <DataChart
+      title="Membership growth"
+      rows={monthlyRecords(data.members, data.payments).map((r) => ({
+        name: r.name,
+        value: r.Total,
+      }))}
+      type="line"
+      sub="Cumulative records by joining date · no invented project history"
+    />
   );
 }
 export function MembershipChart() {
