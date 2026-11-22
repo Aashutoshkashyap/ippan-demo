@@ -90,6 +90,11 @@ export function extensionAction(
     if (s.sitePages!.some((p) => p.slug === v.slug && p.id !== v.id))
       throw new HttpError("That page address already exists.");
     const old = s.sitePages!.find((p) => p.id === v.id);
+    if (old?.status === "Published" && u?.role === "Content Editor")
+      throw new HttpError(
+        "An administrator must revise a published page. Create a separate draft for review.",
+        403,
+      );
     const row = { ...v, id: old?.id || id("PAGE") };
     if (old) Object.assign(old, row);
     else s.sitePages!.push(row);
@@ -113,6 +118,11 @@ export function extensionAction(
       .parse(d);
     publishing(v.status);
     const old = s.profiles!.find((p) => p.id === v.id);
+    if (old?.status === "Published" && u?.role === "Content Editor")
+      throw new HttpError(
+        "An administrator must revise a published profile.",
+        403,
+      );
     const row = { ...v, id: old?.id || id("PROFILE") };
     if (old) Object.assign(old, row);
     else s.profiles!.push(row);
@@ -175,6 +185,8 @@ export function extensionAction(
         throw new HttpError("Use a YouTube or Vimeo HTTPS video link.");
     }
     const old = s.media!.find((m) => m.id === v.id);
+    if (old?.status === "Published" && u?.role === "Content Editor")
+      throw new HttpError("An administrator must revise published media.", 403);
     if (!old && s.media!.length >= 30)
       throw new HttpError(
         "This demonstration media library supports 30 items.",

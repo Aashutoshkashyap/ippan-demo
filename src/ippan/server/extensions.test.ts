@@ -231,4 +231,19 @@ describe("institutional CMS and private staff workflows", () => {
       act("notification-preferences", { email: false, sms: true }, null),
     ).toThrow("member account");
   });
+  it("limits audit snapshots to authorized roles and protects published editions from editor unpublishing", () => {
+    const finance = { ...admin, role: "Finance Officer" as const };
+    expect(snapshot(s, finance).audit).toEqual([]);
+    expect(snapshot(s, admin).audit.length).toBeGreaterThan(0);
+    const published = s.news.find((n) => n.status === "Published")!;
+    const editor = { ...admin, role: "Content Editor" as const };
+    expect(() =>
+      act(
+        "save-content",
+        { ...published, kind: "news", status: "Archived" },
+        editor,
+      ),
+    ).toThrow("administrator review");
+    expect(published.status).toBe("Published");
+  });
 });

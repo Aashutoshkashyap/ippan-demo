@@ -251,7 +251,7 @@ export function snapshot(s: State, u: Viewer | null) {
             }))
           : undefined,
     })),
-    audit: admin ? s.audit : [],
+    audit: admin && can(u.role, "audit") ? s.audit : [],
     messages: admin && can(u.role, "communications") ? s.messages : [],
     notifications: s.notifications.filter((n) => n.memberId === member),
     viewer: u,
@@ -629,6 +629,11 @@ export function applyAction(
       const list = s[c.kind];
       if (c.pdf) validatePdf(c.pdf);
       const old = list.find((x) => x.id === c.id);
+      if (old?.status === "Published" && u?.role === "Content Editor")
+        throw new HttpError(
+          "A published edition requires administrator review. Create a separate draft for review.",
+          403,
+        );
       const content = {
         ...c,
         id: old?.id || id(c.kind === "news" ? "N" : "DOC"),
