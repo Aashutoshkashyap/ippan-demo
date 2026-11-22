@@ -15,6 +15,9 @@ try {
   const db = await pool.query("SELECT current_database() AS database");
   const sql = await fs.readFile("db/ippan/202611210001_foundation.sql", "utf8");
   await pool.query(sql);
+  await pool.query(
+    await fs.readFile("db/ippan/202611220001_editorial.sql", "utf8"),
+  );
   console.log(
     "IPPAN namespace migration applied to dedicated Neon database:",
     db.rows[0].database,

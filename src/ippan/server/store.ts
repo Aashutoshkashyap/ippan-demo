@@ -37,10 +37,17 @@ export function getIppanPool() {
 let localQueue: Promise<unknown> = Promise.resolve();
 export async function readState(): Promise<State> {
   if (process.env.IPPAN_DATABASE_URL) {
-    const result = await getIppanPool().query<{ data: State }>(
-      "SELECT data FROM ippan_demo.platform_state WHERE id=1",
+    const result = await getIppanPool().query<{
+      data: State;
+      editions: State["cmsRevisions"];
+    }>(
+      "SELECT p.data, coalesce(e.data, '[]'::jsonb) AS editions FROM ippan_demo.platform_state p LEFT JOIN ippan_demo.editorial_state e ON e.id=p.id WHERE p.id=1",
     );
-    if (result.rows[0]) return upgradeState(result.rows[0].data);
+    if (result.rows[0])
+      return upgradeState({
+        ...result.rows[0].data,
+        cmsRevisions: result.rows[0].editions,
+      });
   }
   return transaction((s) => structuredClone(s));
 }
@@ -68,10 +75,19 @@ export async function transaction<T>(
           )
         ).rows[0].data;
       upgradeState(data);
+      const editorial = await client.query<{ data: State["cmsRevisions"] }>(
+        "SELECT data FROM ippan_demo.editorial_state WHERE id=1",
+      );
+      data.cmsRevisions = editorial.rows[0]?.data || [];
       const value = await fn(data);
+      const { cmsRevisions, ...operational } = data;
       await client.query(
         "UPDATE ippan_demo.platform_state SET data=$1, updated_at=now() WHERE id=1",
-        [JSON.stringify(data)],
+        [JSON.stringify(operational)],
+      );
+      await client.query(
+        "INSERT INTO ippan_demo.editorial_state (id,data) VALUES (1,$1) ON CONFLICT (id) DO UPDATE SET data=excluded.data, updated_at=now()",
+        [JSON.stringify(cmsRevisions || [])],
       );
       await client.query("COMMIT");
       return value;

@@ -1,6 +1,6 @@
 # Connected CMS and member demonstration
 
-This release extends the existing IPPAN Next.js/React/TypeScript application, dedicated Neon PostgreSQL state store, REST actions, session authentication and server-enforced roles. It does not introduce another database or Vercel project.
+This release extends the existing IPPAN Next.js/React/TypeScript application, dedicated Neon PostgreSQL database, REST actions, session authentication and server-enforced roles. It does not introduce another database or Vercel project.
 
 ## Staff demonstration
 
@@ -33,7 +33,7 @@ Open `/admin/website`:
 
 Snapshots now enumerate allowed fields rather than spreading the database object. Working editions and fingerprints are available only to the corresponding editorial roles; PDF bytes remain off all snapshots. Member-only editions and documents retain existing active-membership authorization. Unknown future private collections are excluded by default.
 
-Compatibility handling: the older deployed snapshot implementation spread unknown database fields, so the new demonstration editorial collection was temporarily held in an ignored private local file while the replacement release was built. Only fictional demonstration guide material was in that collection. Its review history is restored only after the new release's explicit snapshot boundary is active. Existing public records, published member-only guide access, memberships and financial records are retained.
+Compatibility handling: the older deployed snapshot implementation spread unknown database fields, so the new demonstration editorial collection was temporarily held in an ignored private local file. Only fictional demonstration guide material was in that collection. Review history was then restored into the separate, additive `ippan_demo.editorial_state` table. New server reads join that private collection and apply editorial authorization; writes persist it atomically with operational changes. A database trigger rejects older releases that attempt to write nonempty editorial collections into the legacy operational document, and strips empty collections from compatible old writes. Older release URLs therefore cannot read the private table through their operational snapshots. Existing public records, memberships and financial records are retained. Run `npm run db:migrate` before deploying this code to a fresh environment.
 
 Native mobile apps and real payment/email/SMS/push integrations remain outside the agreed scope. Notifications in this release are in-app records. Official institutional content, verified project data and production election requirements still require approved inputs.
 
