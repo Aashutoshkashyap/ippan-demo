@@ -93,3 +93,8 @@ Increased body, navigation, field, table and chart-label sizes, using relative u
 Browser-verified local views: public homepage at 1280px and 390px; membership application at 320px; administration overview at 1280px, 768px and 390px; member-management table and review dialog at 390px. Document scroll widths matched viewport widths in the checked layouts. The mobile workspace drawer opened, and the table stayed inside its horizontally scrollable container.
 
 `npm run build` passed compilation, TypeScript and page-data generation. `git diff --check` passed. Domain behavior was unchanged; the earlier domain/integration results above were not rerun for this presentation update. Browser deployment and final hosted verification are recorded separately in `DEPLOYMENT.md`.
+
+
+## Institutional implementation follow-up — 22 November 2026
+
+The new briefs were implemented through the existing architecture. Final validation reached 31 passing automated tests, 34 passing live workflow assertions, production build/TypeScript success and lint with no errors (14 image optimization warnings). New browser and hosted authorization/Unicode-document checks are recorded in [deployment provenance](DEPLOYMENT.md); [release notes](RELEASE-2026-11-22.md) list features, routes and remaining data/translation/integration boundaries. Historical baseline matrices above are retained as provenance.
