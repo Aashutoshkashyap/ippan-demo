@@ -77,3 +77,10 @@ Preserve Neon project backups and use a tested `pg_dump`/restore procedure befor
 The public site adapts IPPAN identity/content, the Global College photographic-hero pattern, and the two attached public-page layout references. Administration adapts the dark navy sidebar, operational panels and chart composition of the three supplied dashboard references. These conflicting references are **not reproduced pixel-for-pixel**. The app uses functional components and real demo workflows, not screenshot backgrounds.
 
 The original Next.js routes/config and original dependency manifests are preserved in `legacy/merotalent/`; existing `src` code and original migrations are retained for future selective reuse. They are excluded from active routing, compilation and the IPPAN test suite. The active IPPAN app does not call MeroTalent or Supabase.
+
+
+## Repository and existing hosting
+
+Source: [Aashutoshkashyap/ippan-demo](https://github.com/Aashutoshkashyap/ippan-demo), branch `main`. This repository is connected to the existing [IPPAN Vercel project](https://vercel.com/aashutoshkashyaps-projects/ippan-demo), serving [ippan-demo.vercel.app](https://ippan-demo.vercel.app/).
+
+Automatic Git deployments are disabled in `vercel.json` to preserve the current production deployment. Pushing code runs GitHub verification, without deploying the website. See [deployment records](docs/ippan/DEPLOYMENT.md) before a separately authorized release.

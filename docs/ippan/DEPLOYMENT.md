@@ -19,7 +19,7 @@ Deployed through Vercel’s browser “Drop to Deploy” folder-upload interface
 
 The initial build was followed by a production redeployment after environment settings were configured. Vercel account email verification was completed by the user. The app uses the dedicated IPPAN Neon project previously configured; no MeroTalent database or deployment settings were changed.
 
-No repository push or Git connection was made. Future local changes will require another deployment; they will not auto-deploy through Git until a repository connection is explicitly configured.
+The original release used folder upload. On 22 November 2026, the source was pushed to the dedicated GitHub repository and connected to this same Vercel project, as recorded below. Automatic Git deployments are disabled at the user’s request.
 
 ## Production environment
 
@@ -55,3 +55,18 @@ The larger-font/responsive revision was uploaded through Vercel’s browser fold
 Hosted browser verification confirmed 16px body and hero paragraph text, 14px public navigation, the revised 280px desktop sidebar, and no page-level horizontal overflow in the reviewed 390px, 768px, 1024px and 1280px layouts. The signed-in member portal and administrator dashboard were reviewed at phone width. Administrator sign-in and chart metric/6-to-12-month interactions succeeded; the chart displayed all twelve month labels. The final dashboard console error list was empty. The 320px membership form/header and mobile review dialog were checked locally before deployment.
 
 The production build passed compilation, TypeScript and page-data generation. Responsive viewport overrides were reset. Screenshots: `output/playwright/typography-live-home-mobile.png`, `typography-live-admin-mobile.png`, `typography-live-admin-desktop.png`, and `typography-vercel-ready.png`.
+
+
+## Dedicated GitHub repository connection — 22 November 2026
+
+- Repository: https://github.com/Aashutoshkashyap/ippan-demo
+- Branch: `main`
+- Initial self-contained source commit: `40c246c35374898d538373116f881704112e468c`
+- Existing Vercel project: `aashutoshkashyaps-projects/ippan-demo`
+- Production deployment retained: `dpl_679mcD4o7Dv2QRW4doYiuK4HZp5d`
+
+The browser’s Connected Git Repository section confirms `Aashutoshkashyap/ippan-demo`. Connection was made through the existing project’s Git settings; no project import, deployment creation or redeployment action was used. The deployment history still lists the existing 21 November release as the latest deployment. Existing production environment settings and the dedicated IPPAN database remain in place.
+
+`vercel.json` sets `git.deploymentEnabled` to `false` for all branches, following [Vercel’s Git configuration documentation](https://vercel.com/docs/project-configuration/git-configuration). A future push therefore does not automatically deploy. A new deployment requires a separate explicit release action. GitHub Actions verifies `main` with TypeScript, 16 domain tests and a production build; this workflow contains no deploy step.
+
+The local primary remote now points to the dedicated IPPAN repository. The original MeroTalent remote and imported history remain available locally as `merotalent-source` and `ippan-import-history`; neither was pushed back to MeroTalent. Private environment files and ignored local QA captures were excluded. The staged source was checked against the private IPPAN runtime secret values and common credential patterns before publishing.
