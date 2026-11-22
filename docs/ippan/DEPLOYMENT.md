@@ -1,15 +1,15 @@
 # IPPAN Vercel deployment
 
-Verified on 21 November 2026 (Asia/Kathmandu).
+Verified on 22 November 2026 (Asia/Kathmandu).
 
 - Live website: https://ippan-demo.vercel.app/
 - Sign-in: https://ippan-demo.vercel.app/login
 - Admin workspace: https://ippan-demo.vercel.app/admin
 - Member portal: https://ippan-demo.vercel.app/portal
 - Vercel project: https://vercel.com/aashutoshkashyaps-projects/ippan-demo
-- Final deployment: https://vercel.com/aashutoshkashyaps-projects/ippan-demo/DqvG44kognTsBxBwZ3AeWWmDpaJe
-- Deployment ID: `dpl_DqvG44kognTsBxBwZ3AeWWmDpaJe`
-- Vercel status: **Ready**, Production. Institutional platform release from Git commit `97e382a`.
+- Final deployment: https://vercel.com/aashutoshkashyaps-projects/ippan-demo/P9MyRn9KmCV9ToBUE5X4XPUJvnWa
+- Deployment ID: `dpl_P9MyRn9KmCV9ToBUE5X4XPUJvnWa`
+- Vercel status: **Ready**, Production. Connected CMS and responsive publishing release from Git commit `98b9a9992a60f5c48fff47437de57668f0e157ab`.
 
 ## Original upload method and source
 
@@ -25,12 +25,12 @@ The original release used folder upload. On 22 November 2026, the source was pus
 
 The user explicitly approved saving these credentials in Vercel. Only names are recorded here:
 
-| Name | Vercel type | Scope |
-| --- | --- | --- |
-| IPPAN_DATABASE_URL | Secret; cannot be revealed after saving | Production |
+| Name                | Vercel type                             | Scope      |
+| ------------------- | --------------------------------------- | ---------- |
+| IPPAN_DATABASE_URL  | Secret; cannot be revealed after saving | Production |
 | IPPAN_DEMO_PASSWORD | Secret; cannot be revealed after saving | Production |
-| IPPAN_LOCAL_DEMO | Config, value `0` | Production |
-| IPPAN_SITE_URL | Config, canonical HTTPS website origin | Production |
+| IPPAN_LOCAL_DEMO    | Config, value `0`                       | Production |
+| IPPAN_SITE_URL      | Config, canonical HTTPS website origin  | Production |
 
 These are server-only variables; no `NEXT_PUBLIC_` credentials are present. Secret values are absent from deployment source and documentation. The first deployment had no DB environment configured; the final Ready deployment includes all four production settings.
 
@@ -47,7 +47,6 @@ This deployment verification does not repeat every local/domain integration scen
 
 Screenshots are local and ignored by Git: `output/playwright/vercel-ready.png`, `vercel-live-admin.png`, `vercel-live-member.png`, and `vercel-live-home.png`.
 
-
 ## Typography release — 21 November 2026
 
 The larger-font/responsive revision was uploaded through Vercel’s browser folder chooser, followed by **Deploy to an existing project instead → ippan-demo**. The 39-file source bundle contained no environment files or secrets. The user completed a fresh Vercel email identity challenge. Vercel then reported the new production deployment Ready on the existing `ippan-demo.vercel.app` domain. The previous baseline deployment was `dpl_HcPYRzkBXDr2AitoCVbmmSfuEX9b`.
@@ -55,7 +54,6 @@ The larger-font/responsive revision was uploaded through Vercel’s browser fold
 Hosted browser verification confirmed 16px body and hero paragraph text, 14px public navigation, the revised 280px desktop sidebar, and no page-level horizontal overflow in the reviewed 390px, 768px, 1024px and 1280px layouts. The signed-in member portal and administrator dashboard were reviewed at phone width. Administrator sign-in and chart metric/6-to-12-month interactions succeeded; the chart displayed all twelve month labels. The final dashboard console error list was empty. The 320px membership form/header and mobile review dialog were checked locally before deployment.
 
 The production build passed compilation, TypeScript and page-data generation. Responsive viewport overrides were reset. Screenshots: `output/playwright/typography-live-home-mobile.png`, `typography-live-admin-mobile.png`, `typography-live-admin-desktop.png`, and `typography-vercel-ready.png`.
-
 
 ## Dedicated GitHub repository connection — 22 November 2026
 
@@ -70,7 +68,6 @@ The browser’s Connected Git Repository section confirms `Aashutoshkashyap/ippa
 `vercel.json` sets `git.deploymentEnabled` to `false` for all branches, following [Vercel’s Git configuration documentation](https://vercel.com/docs/project-configuration/git-configuration). A future push therefore does not automatically deploy. A new deployment requires a separate explicit release action. GitHub Actions verifies `main` with TypeScript, 16 domain tests and a production build; this workflow contains no deploy step.
 
 The local primary remote now points to the dedicated IPPAN repository. The original MeroTalent remote and imported history remain available locally as `merotalent-source` and `ippan-import-history`; neither was pushed back to MeroTalent. Private environment files and ignored local QA captures were excluded. The staged source was checked against the private IPPAN runtime secret values and common credential patterns before publishing.
-
 
 ## Institutional platform release — 22 November 2026
 
@@ -90,3 +87,13 @@ Final checks:
 - Source GitHub CI run `45043994373` passed for corrected commit `97e382a`.
 
 Screenshots are local and Git-ignored: `tor-live-home.png`, `tor-live-nepali-mobile.png`, `tor-live-admin-mobile.png`, `tor-live-admin-desktop.png`, `tor-vercel-ready.png` under `output/playwright/`. The application retains the existing private evaluation credentials; none are recorded in this document. Scope and institutional-data dependencies are summarized in `RELEASE-2026-11-22.md`.
+
+## Connected CMS and member demonstration — 22 November 2026
+
+The feature commit `431495e` introduced the connected publishing desk and member demo. Commit `03de7a1` isolated private working editions in an additive Neon table with a legacy-write guard; migration `202611220001_editorial.sql` was applied to the dedicated IPPAN database before deployment. Commit `98b9a99` completed the responsive publishing cards and desktop action layout. All changes were pushed to `Aashutoshkashyap/ippan-demo` and manually deployed through the browser to the existing Vercel project; no new project or database was created and environment secrets were unchanged.
+
+Final production deployment `dpl_P9MyRn9KmCV9ToBUE5X4XPUJvnWa` is Ready and assigned to `ippan-demo.vercel.app`, built in 49 seconds from `98b9a99`. GitHub Actions verification run `45047700512` succeeded for that exact commit. Production build/TypeScript passed, all 41 tests passed, and lint had no errors (15 retained HTML-image optimization warnings). The release's 15 hosted authentication, member, privacy and PDF assertions passed; later layout-only changes did not alter those workflows.
+
+Browser verification covered the bilingual guide preparation/approval, hosted member sign-in and linked company/project profile, administrator publishing queue, shared homepage heading update, desktop table and phone publishing cards. The final admin console error list was empty. Final captures are ignored local files: `output/playwright/connected-cms-live.png`, `connected-cms-mobile-live.png` and `connected-member-profile.png`.
+
+The ordinary Member account `demo.member@ippan.demo` is linked to fictional member `M-A7F6280B1A50`, a 12.5 MW survey-stage sample project, initial Pending fee invoice, free event registration and approved private bilingual guide. Credentials are supplied privately rather than committed. A separate Content Editor notice remains In review to demonstrate the approval queue. See `CONNECTED-CMS.md` for the guided demonstration and scope boundaries.

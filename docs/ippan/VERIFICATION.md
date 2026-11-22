@@ -42,21 +42,21 @@ Native mobile apps and real payment/email/SMS/push/other integrations were exclu
 
 ## Stage 7 — checks and browser evidence
 
-| Check | Observed result |
-| --- | --- |
-| `npm run typecheck` | Passed after final HTTP input handling changes. |
-| `npm run test` | **16 tests passed**. Includes full domain transitions, RBAC, private-data filtering, correction keys, publication byte privacy, manual approval, reversal and atomic import validation. |
-| `npm run test:integration` | **34 live HTTP assertions passed** against the dedicated IPPAN Neon database. Covers application/PDF/review/activation, tracking, portal, certificate authorization, renewal concurrency, receipt/reconciliation, event/pass/attendance, draft/publish synchronization, proxy/ballot/vote duplicate rejection, correspondence/tasks, RBAC and audit. |
-| Initial integration attempt | Interrupted by local server restart after 30 passing assertions; the subsequent full run completed all 34. No incomplete run is counted as passing. |
-| Public route smoke check | Eleven public destinations returned HTTP 200. Unknown route, unknown admin module and unknown member detail returned HTTP 404. |
-| Invalid JSON API input | HTTP 400 with structured error. Streamed request-body size limits also implemented. |
-| Browser | Admin and member sign-in, CMS draft saving, chart metric/period changes, member-directory search, public mobile menu, administration mobile menu and member-to-admin access denial verified. |
-| Responsive browser dimensions | Public homepage and administration at 390×844: document width equalled viewport width (390px); no page-level horizontal overflow. Desktop reviewed at 1280×800. |
-| Browser error log | Empty error list on the final desktop administration view. |
-| `npm run lint` | 0 errors, 12 warnings for intentionally retained HTML image elements. |
-| `npm audit --audit-level=moderate` | 0 reported vulnerabilities after compatible updates. |
-| `git diff --check` | Passed. |
-| Docker / remote CI | Provided configuration only; not run. Vercel browser deployment is recorded in `DEPLOYMENT.md`. |
+| Check                              | Observed result                                                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `npm run typecheck`                | Passed after final HTTP input handling changes.                                                                                                                                                                                                                                                                                                      |
+| `npm run test`                     | **16 tests passed**. Includes full domain transitions, RBAC, private-data filtering, correction keys, publication byte privacy, manual approval, reversal and atomic import validation.                                                                                                                                                              |
+| `npm run test:integration`         | **34 live HTTP assertions passed** against the dedicated IPPAN Neon database. Covers application/PDF/review/activation, tracking, portal, certificate authorization, renewal concurrency, receipt/reconciliation, event/pass/attendance, draft/publish synchronization, proxy/ballot/vote duplicate rejection, correspondence/tasks, RBAC and audit. |
+| Initial integration attempt        | Interrupted by local server restart after 30 passing assertions; the subsequent full run completed all 34. No incomplete run is counted as passing.                                                                                                                                                                                                  |
+| Public route smoke check           | Eleven public destinations returned HTTP 200. Unknown route, unknown admin module and unknown member detail returned HTTP 404.                                                                                                                                                                                                                       |
+| Invalid JSON API input             | HTTP 400 with structured error. Streamed request-body size limits also implemented.                                                                                                                                                                                                                                                                  |
+| Browser                            | Admin and member sign-in, CMS draft saving, chart metric/period changes, member-directory search, public mobile menu, administration mobile menu and member-to-admin access denial verified.                                                                                                                                                         |
+| Responsive browser dimensions      | Public homepage and administration at 390×844: document width equalled viewport width (390px); no page-level horizontal overflow. Desktop reviewed at 1280×800.                                                                                                                                                                                      |
+| Browser error log                  | Empty error list on the final desktop administration view.                                                                                                                                                                                                                                                                                           |
+| `npm run lint`                     | 0 errors, 12 warnings for intentionally retained HTML image elements.                                                                                                                                                                                                                                                                                |
+| `npm audit --audit-level=moderate` | 0 reported vulnerabilities after compatible updates.                                                                                                                                                                                                                                                                                                 |
+| `git diff --check`                 | Passed.                                                                                                                                                                                                                                                                                                                                              |
+| Docker / remote CI                 | Provided configuration only; not run. Vercel browser deployment is recorded in `DEPLOYMENT.md`.                                                                                                                                                                                                                                                      |
 
 Unit tests do not substitute for browser evidence. The live integration suite exercises APIs against Neon; it is not described as a full browser automation journey for every TOR item. Some library-upload, event-editing, export/download and staff-role UI combinations remain only partially verified.
 
@@ -80,11 +80,9 @@ The final `npm run build` passed compilation, TypeScript and page-data generatio
 
 **Eight production smoke assertions passed**: live dedicated Neon mode, successful member authentication, Secure/HTTP-only/SameSite session flags, active member data, authorized certificate PDF, forbidden member administration mutation, unknown-detail 404 and public homepage 200. Production administration and public pages were also opened in fresh browser tabs and captured as `admin-desktop.png`, `admin-full.png`, `home-desktop.png` and `home-full.png`. Temporary responsive viewport overrides were reset. Both final preview tabs were retained.
 
-
 ## Vercel deployment follow-up
 
 On 21 November 2026, the user requested browser-based Vercel deployment and explicitly approved storing the dedicated IPPAN Neon connection and demo-account password as private Vercel settings. Vercel reports the final deployment Ready. The live homepage, images, Neon-backed records, administrator sign-in, interactive chart controls, member sign-in/portal and member denial from administration were verified in the browser. See `DEPLOYMENT.md` for the live URLs and provenance. The local-only status above describes the earlier baseline stage.
-
 
 ## Typography and responsive follow-up — 21 November 2026
 
@@ -94,7 +92,21 @@ Browser-verified local views: public homepage at 1280px and 390px; membership ap
 
 `npm run build` passed compilation, TypeScript and page-data generation. `git diff --check` passed. Domain behavior was unchanged; the earlier domain/integration results above were not rerun for this presentation update. Browser deployment and final hosted verification are recorded separately in `DEPLOYMENT.md`.
 
-
 ## Institutional implementation follow-up — 22 November 2026
 
 The new briefs were implemented through the existing architecture. Final validation reached 31 passing automated tests, 34 passing live workflow assertions, production build/TypeScript success and lint with no errors (14 image optimization warnings). New browser and hosted authorization/Unicode-document checks are recorded in [deployment provenance](DEPLOYMENT.md); [release notes](RELEASE-2026-11-22.md) list features, routes and remaining data/translation/integration boundaries. Historical baseline matrices above are retained as provenance.
+
+## Connected CMS and member profile — 22 November 2026
+
+The publishing desk now spans news/notices, pages, resources and publications. Private working editions support bilingual preview, review notes, approval, retained history, concurrent-edit checks and safe updates at existing public URLs. Homepage studio, published media covers, navigation groups and service connections use the shared records. A Content Editor-created bilingual sample notice remains In review for the next demonstration; guests cannot see it. The browser-published homepage news heading was confirmed in the public state response.
+
+Validation for this release:
+
+- 41 automated tests passed across five suites, including approval, changes requested, draft conflicts, live-record conflicts, attachment privacy, member-only publishing, linked notifications and future private-field exclusion.
+- Production builds passed compilation, TypeScript and tracing. Lint passed with 0 errors and 15 HTML-image optimization warnings. Layout-only adjustments were browser-checked without adding implementation-mirroring tests.
+- 14 local HTTP checks and 15 hosted HTTPS checks passed for the generated member login, secure cookie, ordinary Member role, linked project, initial Pending invoice, free registration, private bilingual guide, in-app notification, member-only PDF denial for guests, readable guide/certificate/QR PDFs and CMS write denial for a member.
+- Neon checks confirmed editorial records are in the separate `editorial_state` table, absent from `platform_state`, and rejected if older code tries to place private editions into the legacy operational document. Existing records and review history were preserved.
+- Browser-created bilingual member guide was previewed in both languages, submitted and approved; member access and linked notifications were confirmed. The generated member's dashboard, company profile and linked 12.5 MW survey-stage project were reviewed on the hosted site.
+- Publishing cards, homepage studio and service connections were checked at phone width with no document overflow. At 390px the publishing actions fit within the viewport and the edition rows become cards. Desktop publishing keeps its actions in the table.
+
+The fictional account is `demo.member@ippan.demo`, member `M-A7F6280B1A50`. Its private password is supplied separately. No real payment, external email or SMS occurred. See `CONNECTED-CMS.md` for the demonstration sequence and deployment/privacy details. Earlier baseline matrices and test counts above remain historical evidence.
